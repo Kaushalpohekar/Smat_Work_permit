@@ -5,14 +5,20 @@ const app = express();
 const Schema = require('../schema');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
-const {v4:uuid} =require('uuid');
+const { v4: uuidv4 } = require('uuid');
 const { reset } = require('nodemon');
 const nodemailer =require('nodemailer');
 const { fstat } = require('fs');
 app.use(bodyParser.json());
+const jwtUtils = require('jwt-utils'); 
+const path = require('path');
+const fs =require('fs');
 
 
-function sendTokenEmail(email,token,FirstName,LastName){
+function sendTokenEmail(PersonalEmail,VerificationToken,FirstName,LastName){
+
+    const emailId=uuidv4();
+    
     const transporter=nodemailer.createTransport({
         host:'smtp.gmail.com',
         port: 465,
@@ -22,8 +28,6 @@ function sendTokenEmail(email,token,FirstName,LastName){
         },
 
     });
-    const emailId=uuidv4();
-
     const templatePath =path.join(__dirname,'');
     fs.readFile(templatePath,'utf8',async(err,templateData)=>{
         if(err){
@@ -32,11 +36,11 @@ function sendTokenEmail(email,token,FirstName,LastName){
         }
         const compiledTemplate = ejs.compile(templateData);
 
-        const html=compiledTemplate({token,FirstName,LastName});
+        const html=compiledTemplate({VerificationToken,FirstName,LastName});
 
         const mailOptions={
             from:'email@gmail.com',
-            to:email,
+            to:PersonalEmail,
             sunject:'Registration Token',
             html:html,
         };
@@ -57,14 +61,26 @@ async function register(req, res) {
     try {
         const { FirstName, LastName, PersonalEmail, UserPassword, CompanyEmail, ContactNumber, CompanyName } = req.body;
 
+        
+
+        const user=await Schema.findOne({PersonalEmail});
+        if(user){
+            return res.status(404).json({message:"User already exists."});
+        }
+
         const hashedPassword = await bcrypt.hash(UserPassword, 10);
+
+        const verificationToken = jwt.sign({PersonalEmail:PersonalEmail},'JWT_TOKEN');
 
         const data = await Schema.create({ FirstName, LastName, PersonalEmail, UserPassword: hashedPassword, CompanyEmail, ContactNumber, CompanyName });
 
         const newData = await data.save();
 
 
-        res.status(201).json({ message: "data inserted successfully", newData });
+        res.status(201).json({ message: "User registered successfully", newData });
+
+        sendTokenEmail(PersonalEmail,verificationToken,FirstName,LastName);
+
     } catch (error) {
         console.error('Error registering new User : ', error);
         res.status(500).json({ message: 'Error creating New User', error });
@@ -95,6 +111,81 @@ async function login(req,res){
     }
 }
 
+async function getUserDetails(req,res){
+    try {
+        const {PersonalEmail} = req.body;
+        const user = await Schema.findOne({ PersonalEmail});
+        if(!user){
+            return res.status(404).json({message:'User not found'});
+        }
+
+        res.status(200).json({message:"User details",user});
+
+    }catch (error){
+        console.error('Error fetching user details: ',error);
+        res.status(500).json({message:'Error fetching data'});
+
+    }
+}
+
+
+// async function setUserOnline(req,res){
+//     const PersonalEmail=req.params.PersonalEmail;
+//     try{
+//         const user =await Schema.findOne({PersonalEmail:PersonalEmail});
+//         if (!user){
+//             return res.status(404).json({message:'User not found!'});
+//         }
+//         const updateResult=await Schema.updateOne(
+//             {PersonalEmail:PersonalEmail},
+//             {$set:{is_Online:true}}
+//         );
+//         if(updateResult.modifiedCount!==1){
+//             return res.status(404).json({message:'Error updateing user'});
+//         }
+//         res.status(200).json({message:'Status Updated Successfully'});
+
+//     }catch(error){
+//         console.error('error occured',error);
+//         res.status(500).json({message:'Error occured'});
+
+//     }
+// }
+
+
+async function setUserOnline(req, res) {
+    // const PersonalEmail = req.params.PersonalEmail;
+    const {PersonalEmail} = req.body;
+  
+    try {
+      const user = await Schema.findOne({ PersonalEmail });
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found!' });
+      }
+  
+      const updateResult = await Schema.updateOne(
+        { PersonalEmail },
+        { $set: { is_Online: 1 } }
+      );
+  
+      if (updateResult.modifiedCount !== 1) {
+        // Check for specific Mongoose errors (optional)
+        if (updateResult.error) {
+          console.error('Error updating user online status:', updateResult.error);
+          return res.status(500).json({ message: 'Error updating user online status' });
+        } else {
+          return res.status(400).json({ message: 'Error updating user' }); // Or more specific message
+        }
+      }
+  
+      res.status(200).json({ message: 'Status Updated Successfully' });
+    } catch (error) {
+      console.error('Error occurred:', error);
+      res.status(500).json({ message: 'Error occurred' });
+    }
+  }
+  
 
 
 
@@ -103,7 +194,9 @@ async function login(req,res){
 module.exports = {
     register,
     login,
-    
+    getUserDetails,
+    setUserOnline,
+
 
 
 };
