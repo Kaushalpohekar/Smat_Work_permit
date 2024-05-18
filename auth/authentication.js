@@ -154,37 +154,31 @@ async function getUserDetails(req,res){
 
 
 async function setUserOnline(req, res) {
-    // const PersonalEmail = req.params.PersonalEmail;
-    const {PersonalEmail} = req.body;
-  
+    const { PersonalEmail } = req.body; // Ensure the request is sending the PersonalEmail in the body
+    
     try {
       const user = await Schema.findOne({ PersonalEmail });
-  
+      
       if (!user) {
         return res.status(404).json({ message: 'User not found!' });
       }
-  
+      
       const updateResult = await Schema.updateOne(
         { PersonalEmail },
         { $set: { is_Online: 1 } }
       );
-  
+      
       if (updateResult.modifiedCount !== 1) {
-        // Check for specific Mongoose errors (optional)
-        if (updateResult.error) {
-          console.error('Error updating user online status:', updateResult.error);
-          return res.status(500).json({ message: 'Error updating user online status' });
-        } else {
-          return res.status(400).json({ message: 'Error updating user' }); // Or more specific message
-        }
+        return res.status(400).json({ message: 'Error updating user' }); // Simple error message
       }
-  
+      
       res.status(200).json({ message: 'Status Updated Successfully' });
     } catch (error) {
       console.error('Error occurred:', error);
-      res.status(500).json({ message: 'Error occurred' });
+      res.status(500).json({ message: 'Internal Server Error' }); // More specific error message
     }
   }
+  
   
 
 
