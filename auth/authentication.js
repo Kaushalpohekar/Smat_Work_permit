@@ -60,9 +60,6 @@ function sendTokenEmail(PersonalEmail,VerificationToken,FirstName,LastName){
 async function register(req, res) {
     try {
         const { FirstName, LastName, PersonalEmail, UserPassword, CompanyEmail, ContactNumber, CompanyName } = req.body;
-
-        
-
         const user=await Schema.findOne({PersonalEmail});
         if(user){
             return res.status(404).json({message:"User already exists."});
@@ -183,14 +180,45 @@ async function setUserOnline(req, res) {
 
 
 
-
+//FORGOT PASSWORD
+  async function forgotPassword(req, res) {
+    const { personalEmail } = req.body;
+  
+    try {
+      // Find the user by their personalEmail
+      const user = await Schema.findOne({ personalEmail });
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      // Generate a reset token
+      const resetToken = jwt.sign({ personalEmail }, 'JWT_TOKEN', { expiresIn: '1h' }); 
+      // Store the reset token in the database
+      const resetTokenEntry = new resetToken({
+        userId: user._id,
+        token: resetToken
+      });
+  
+      await resetTokenEntry.save();
+  
+      // Send the reset token via email
+      sendTokenEmail(personalEmail, resetToken);
+  
+      res.json({ message: 'Reset token sent to your email' });
+  
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  }
+  
 
 module.exports = {
     register,
     login,
     getUserDetails,
     setUserOnline,
-
-
+    forgotPassword,
 
 };

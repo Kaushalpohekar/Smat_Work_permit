@@ -6,5 +6,7 @@ router.post('/createuser',auth.register);
 router.post('/login',auth.login);
 router.get('/UserDetails',auth.getUserDetails);
 router.put('/setUserOnline',auth.setUserOnline);
+router.post('/forgot', auth.forgotPassword);
+
 
 module.exports = router;
