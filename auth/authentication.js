@@ -53,10 +53,6 @@ function sendTokenEmail(PersonalEmail,VerificationToken,FirstName,LastName){
         }
     });
 }
-
-
-
-
 async function register(req, res) {
     try {
         const { FirstName, LastName, PersonalEmail, UserPassword, CompanyEmail, ContactNumber, CompanyName } = req.body;
@@ -176,10 +172,6 @@ async function setUserOnline(req, res) {
     }
   }
   
-  
-
-
-
 //FORGOT PASSWORD
   async function forgotPassword(req, res) {
     const { personalEmail } = req.body;
@@ -212,7 +204,88 @@ async function setUserOnline(req, res) {
       res.status(500).json({ message: 'Internal Server Error' });
     }
   }
+
+  //resetpassword
+
+  const resetPassword = async (req, res) => {
+    const { token, password } = req.body;
   
+    try {
+      const tokenData = await ResetToken.findOne({ token });
+  
+      if (!tokenData) {
+        return res.status(402).json({ message: 'Invalid token' });
+      }
+  
+      const userId = tokenData.userId;
+  
+      // Hash the new password
+      bcrypt.hash(password, 10, async (hashError, hashedPassword) => {
+        if (hashError) {
+          console.log('Error during password hashing:', hashError);
+          return res.status(401).json({ message: 'Error during password hashing' });
+        }
+  
+        try {
+          // Update the user's password
+          await User.updateOne({ _id: userId }, { $set: { password: hashedPassword } });
+  
+          // Delete the reset token
+          await ResetToken.deleteOne({ token });
+  
+          res.status(200).json({ message: 'Password reset successful' });
+        } catch (updateError) {
+          console.log('Error updating password:', updateError);
+          return res.status(401).json({ message: 'Error updating password' });
+        }
+      });
+    } catch (checkTokenError) {
+      console.log('Error during reset password query:', checkTokenError);
+      return res.status(401).json({ message: 'Error during reset password query' });
+    }
+  };
+  
+
+//resendresettoken
+  const resendResetToken = async (req, res) => {
+    const { personalEmail } = req.body;
+  
+    try {
+      const user = await Schema.findOne({ personalEmail });
+  
+      if (!user) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+  
+      const userId = user._id;
+      const verificationToken = jwt.sign({ personalEmail }, 'JWT_TOKEN', { expiresIn: '1h' });
+  
+      // Update the token or create if it doesn't exist
+      const existingToken = await ResetToken.findOne({ userId });
+      if (existingToken) {
+        existingToken.token = verificationToken;
+        await existingToken.save();
+      } else {
+        const newToken = new ResetToken({
+          userId: userId,
+          token: verificationToken
+        });
+        await newToken.save();
+      }
+  
+      sendTokenEmail(personalEmail, verificationToken);
+      res.status(200).json({ message: 'Resend link resent. Check your email for the new token.' });
+  
+    } catch (error) {
+      console.log('Error during resend reset token:', error);
+      res.status(500).json({ message: 'Internal Server Error' });
+    }
+  };
+  
+
+
+
+
 
 module.exports = {
     register,
@@ -220,5 +293,8 @@ module.exports = {
     getUserDetails,
     setUserOnline,
     forgotPassword,
+    resetPassword,
+    resendResetToken,
+
 
 };
