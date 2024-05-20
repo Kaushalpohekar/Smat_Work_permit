@@ -1,7 +1,3 @@
-const connectToMongo = require('./db');
-
-connectToMongo();
-
 const cors=require('cors')
 const bodyparser=require('body-parser')
 const routes=require('./routes')
