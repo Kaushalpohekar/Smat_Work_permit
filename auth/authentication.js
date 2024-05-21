@@ -177,7 +177,7 @@ function register(req,res){
         organization,
         company_email,
         last_name
-    }=req.body;
+    } = req.body;
 
     const user_id=uuidv4();
 
@@ -222,7 +222,7 @@ function register(req,res){
 
                         console.log('User registered successfully');
                         sendTokenEmail(personal_email,verificationToken,first_name,last_name);
-                        res.json({message:'Registration successfuul. Check your email for the verfication token'});
+                        res.status(200).json({message:'Registration successfuul. Check your email for the verfication token'});
                     }
                 )
             })
