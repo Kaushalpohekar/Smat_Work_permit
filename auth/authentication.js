@@ -182,7 +182,7 @@ function register(req,res){
     const user_id=uuidv4();
 
     const username = `${first_name} ${last_name}`;
-    const emailCheckQuery = `SELECT * FROM users WHERE comapany_email=$1`;
+    const emailCheckQuery = `SELECT * FROM SWP.users WHERE comapany_email=$1`;
     db.query(emailCheckQuery,[company_email],(error,Result)=>{
         if(error){
             console.error('Error during email check:',error);
@@ -193,7 +193,7 @@ function register(req,res){
             return res.status(500).json({message:'company email already exists'});
         }
 
-        const p_emailCheckQuery=`SELECT * FROM users WHERE personal_email=$1`;
+        const p_emailCheckQuery=`SELECT * FROM SWP.users WHERE personal_email=$1`;
 
         db.query(p_emailCheckQuery,[personal_email],(error,result)=>{
             if (error){
@@ -212,7 +212,7 @@ function register(req,res){
                 }
                 const verificationToken=jwtUtils.generateToken({personal_email});
 
-                const insertQuery=`INSERT INTO users (username,personal_email,password_hash,first_name,role,organization,created_at,company_email,last_name,user_id) VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7,$8,$9)`;
+                const insertQuery=`INSERT INTO SWP.users (username,personal_email,password_hash,first_name,role,organization,created_at,company_email,last_name,user_id) VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7,$8,$9)`;
                 db.query(insertQuery,[username,personal_email,password_hash,first_name,role,organization,created_at,company_email,last_name,user_id],
                     (error,insertResult)=>{
                         if(error){
