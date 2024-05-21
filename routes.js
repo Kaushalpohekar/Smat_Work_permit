@@ -4,5 +4,6 @@ const auth = require('./auth/authentication.js');
 const dashboard = require('./dashboard/dashboard.js');
 //const SA = require('./superadmin/SA.js');
 
+router.post('/register',auth.register);
 
 module.exports = router;
