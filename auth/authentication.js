@@ -121,12 +121,6 @@ encryptKey = "SenseLive-Smart-Work-Permit";
     });
   }
   
- 
-
-
-
-
-
 function sendTokenEmail(personal_email,verificationToken,first_name,last_name){
     const transporter =nodemailer.createTransport({
         host:'smtp.gmail.com',
@@ -230,10 +224,42 @@ function register(req,res){
     })
 }
 
+
+function getUserDetails(req, res) {
+  const token = req.headers.authorization.split(' ')[1];
+    const decodedToken = jwtUtils.verifyToken(token);
+    if (!decodedToken) {
+      console.log('Invalid Token');
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+    const fetchUserQuery = 'SELECT * FROM public.users WHERE "username" = $1';
+    const fetchCompanyQuery = `SELECT * FROM public.company_info WHERE "companyid" = $1`;
+    db.query(fetchUserQuery, [decodedToken.userName], (checkUserError, result) => {
+      if (checkUserError) {
+        console.log('Error executing query:', error);
+        return res.status(401).json({ message: 'Error executing user name query'});
+      }
+      if (result.rowCount === 0) {
+        // Log the error and response
+        return res.status(404).json({ message: 'User not found' });
+      }
+      const userDetail = result.rows[0];
+      db.query(fetchCompanyQuery, [userDetail.companyId], (fetchCompanyError, fetchCompanyResult) => {
+        if(fetchCompanyError){
+          console.log(fetchCompanyError);
+          return res.status(401).json({message : 'error fetching company details'});
+        }
+        companyDetails = fetchCompanyResult.rows[0];
+        res.status(200).json({getUserDetails : userDetail, companyDetails : companyDetails});
+      })
+    });
+}
+
 module.exports={
 register,
 forgotPassword,
 resendResetToken,
 resetPassword,
+getUserDetails,
 
 };
