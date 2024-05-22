@@ -8,7 +8,8 @@ router.post('/register',auth.register);
 router.post('/forgot', auth.forgotPassword);
 router.post('/reset-password', auth.resetPassword);
 router.post('/resend-forgot', auth.resendResetToken);
-router.get('/user', auth.getUserDetails);
+//router.get('/user', auth.getUserDetails);
+router.post('/login',auth.login);
 
 
 
