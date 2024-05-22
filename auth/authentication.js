@@ -182,7 +182,7 @@ function register(req,res){
     const user_id=uuidv4();
 
     const username = `${first_name} ${last_name}`;
-    const emailCheckQuery = `SELECT * FROM public.users WHERE comapany_email=$1`;
+    const emailCheckQuery = `SELECT * FROM public.users WHERE company_email=$1`;
     db.query(emailCheckQuery,[company_email],(error,Result)=>{
         if(error){
             console.error('Error during email check:',error);
