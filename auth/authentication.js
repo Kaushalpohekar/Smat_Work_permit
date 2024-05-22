@@ -127,113 +127,242 @@ encryptKey = "SenseLive-Smart-Work-Permit";
 
 
 
-function sendTokenEmail(personal_email,verificationToken,first_name,last_name){
-    const transporter =nodemailer.createTransport({
-        host:'smtp.gmail.com',
-        port:465,
-        secure:true,
-        auth:{
-            user:'kpohekar19@gmail.com',
-            pass:'woptjevenzhqmrpp',
+// function sendTokenEmail(personal_email,verificationToken,first_name,last_name){
+//     const transporter =nodemailer.createTransport({
+//         host:'smtp.gmail.com',
+//         port:465,
+//         secure:true,
+//         auth:{
+//             user:'kpohekar19@gmail.com',
+//             pass:'woptjevenzhqmrpp',
+//         },
+//     });
+
+//     const templatePath =path.join(__dirname,'../mail.body/email-template.ejs');
+//     fs.readFile(templatePath,'utf8',(err,templateData)=>{
+//         if(err){
+//             console.error('Error reading email template:',err);
+//             return;
+//         }
+
+//         const compiledTemplate=ejs.compile(templateData);
+
+//         const html = compiledTemplate({resetToken});
+
+//         const mailOptions={
+//             from:'kpohekar19@gmail.com',
+//             to:personal_email,
+//             subject:'token',
+//             html:html,
+//         };
+//         transporter.sendMail(mailOptions,(err,info)=>{
+//             if(err){
+//                 console.error('Error sending email:',err);
+//             }else{
+//                 console.log('Email sent:',info.response);
+//             }
+//         });
+//     });
+
+// }
+
+
+function sendTokenEmail(personal_email, verificationToken) {
+    const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+            user: 'kpohekar19@gmail.com',
+            pass: 'woptjevenzhqmrpp',
         },
     });
 
-    const templatePath =path.join(__dirname,);
-    fs.readFile(templatePath,'utf8',(err,templateData)=>{
-        if(err){
-            console.error('Error reading email template:',err);
+    const templatePath = path.join(__dirname, '../mail.body/email-template.ejs');
+    fs.readFile(templatePath, 'utf8', (err, templateData) => {
+        if (err) {
+            console.error('Error reading email template:', err);
             return;
         }
 
-        const compiledTemplate=ejs.compile(templateData);
+        const compiledTemplate = ejs.compile(templateData);
 
-        const html = compiledTemplate({resetToken});
+        const html = compiledTemplate({ verificationToken }); // Pass verificationToken to the template
 
-        const mailOptions={
-            from:'kpohekar19@gmail.com',
-            to:personal_email,
-            subject:'Reset Password Link',
-            html:html,
+        const mailOptions = {
+            from: 'kpohekar19@gmail.com',
+            to: personal_email,
+            subject: 'Verification Token', // Update subject if necessary
+            html: html,
         };
-        transporter.sendMail(mailOptions,(err,info)=>{
-            if(err){
-                console.error('Error sending email:',err);
-            }else{
-                console.log('Email sent:',info.response);
+        transporter.sendMail(mailOptions, (err, info) => {
+            if (err) {
+                console.error('Error sending email:', err);
+            } else {
+                console.log('Email sent:', info.response);
             }
         });
     });
-
 }
 
 
 
-function register(req,res){
-    const {
-        personal_email,
-        password_hash,
-        first_name,
-        role,
-        organization,
-        company_email,
-        last_name
-    } = req.body;
+function register(req, res) {
+  const {
+      personal_email,
+      password_hash,
+      first_name,
+      role,
+      organization,
+      company_email,
+      last_name
+  } = req.body;
 
-    const user_id=uuidv4();
+  const user_id = uuidv4();
+  const username = `${first_name} ${last_name}`;
 
-    const username = `${first_name} ${last_name}`;
-    const emailCheckQuery = `SELECT * FROM SWP.users WHERE comapany_email=$1`;
-    db.query(emailCheckQuery,[company_email],(error,Result)=>{
+  const emailCheckQuery = `SELECT * FROM public.users WHERE company_email = $1`;
+  db.query(emailCheckQuery, [company_email], (error, result) => {
+      if (error) {
+          console.error('Error during company email check:', error);
+          return res.status(500).json({ message: 'Internal server error' });
+      }
+      if (result.rows.length > 0) {
+          console.log('Company email already exists');
+          return res.status(400).json({ message: 'Company email already exists' });
+      }
+
+      const p_emailCheckQuery = `SELECT * FROM public.users WHERE personal_email = $1`;
+      db.query(p_emailCheckQuery, [personal_email], (error, result) => {
+          if (error) {
+              console.error('Error during personal email check:', error);
+              return res.status(500).json({ message: 'Internal server error' });
+          }
+          if (result.rows.length > 0) {
+              console.log('Personal email already exists');
+              return res.status(400).json({ message: 'User personal email already exists' });
+          }
+
+          bcrypt.hash(password_hash, 10, (error, hashedPassword) => {
+              if (error) {
+                  console.error('Error during password hashing:', error);
+                  return res.status(500).json({ message: 'Internal server error' });
+              }
+
+              const verificationToken = jwtUtils.generateToken({ personal_email });
+              const insertQuery = `INSERT INTO public.users (username, personal_email, password_hash, first_name, role, organization, created_at, company_email, last_name, user_id) 
+                                   VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9)`;
+
+              db.query(insertQuery, [username, personal_email, hashedPassword, first_name, role, organization, company_email, last_name, user_id], (error, insertResult) => {
+                  if (error) {
+                      console.error('Error during user insertion:', error);
+                      return res.status(500).json({ message: 'Internal server error' });
+                  }
+
+                  console.log('User registered successfully');
+                  sendTokenEmail(personal_email, verificationToken);
+                  res.status(200).json({ message: 'Registration successful. Check your email for the verification token'});
+              });
+          });
+      });
+  });
+}
+
+
+function login(req, res) {
+  const { username, password_hash } = req.body;
+  const query = `SELECT * FROM public.users WHERE username = $1`;
+  
+  db.query(query, [username], (error, result) => {
+    try {
+      if (error) {
+        console.error('Error during login:', error);
+        throw new Error('Error during login');
+      }
+      
+      const rows = result.rows;
+      
+      if (rows.length === 0) {
+        return res.status(404).json({ message: 'User does not exist!' });
+      }
+      
+      const user = rows[0];
+      
+      if (user.verified === '0') {
+        return res.status(401).json({ message: 'User is not verified. Please verify your account.' });
+      }
+      
+      if (user.blocked === '1') {
+        return res.status(401).json({ message: 'User is blocked. Please contact support.' });
+      }
+      
+      bcrypt.compare(password_hash, user.password_hash, (error, isPasswordValid) => {
+        try {
+          if (error) {
+            console.error('Error during password comparison', error);
+            throw new Error('Error during password comparison');
+          }
+          
+          if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+          }
+          
+          const token = jwtUtils.generateToken({ Username: user.username });
+          res.json({ token });
+        } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: 'Internal server error' });
+        }
+      });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ message: 'Internal server error' });
+    }
+  });
+}
+
+function resetToken(req,res){
+  const {personal_email}=req.body;
+
+  const checkUserquery=`SELECT * FROM public.users WHERE personal_email=$1`;
+  db.query(checkUserquery,[personal_email],(error,userResult)=>{
+    if(error){
+      console.error('Error checking user availbility:',error);
+      return res.status(500).json({message:'Internal server error'});
+    }
+    if(userResult.rows.length === 0){
+      return res.status(500).json({message:'User not found'});
+    }
+    if(userResult.rows[0].verified === true){
+      return res.status(400).json({message:'User already verified'});
+    } else {
+      const verificationToken = jwtUtils.generateToken({personal_email:personal_email});
+
+      const updateQuery = `UPDATE public.users SET verificationToken =$1 WHERE personal_email = $2`;
+      db.query(updateQuery,[verificationToken,personal_email],(error,updatedResult)=>{
         if(error){
-            console.error('Error during email check:',error);
-            return res.status(500).json({message:'Internal server error'});
+          console.error('Error updating verfication token:',error);
+          return res.status(500).json({message:'Internal server error'});
         }
-        if(Result.rows.length > 0){
-            console.log('Company email already exist');
-            return res.status(500).json({message:'company email already exists'});
+        try{
+          sendTokenEmail(personal_email,verificationToken);
+          console.log('Verification token resent');
+          res.josn({message:'Verification token resent. Check your email for new token.'});
+        }catch(error){
+          console.error('Error sending verfication token:',error);
+          res.status(500).json({message:'Internal server error'});
         }
-
-        const p_emailCheckQuery=`SELECT * FROM SWP.users WHERE personal_email=$1`;
-
-        db.query(p_emailCheckQuery,[personal_email],(error,result)=>{
-            if (error){
-                console.error('Error during personal email check:',error);
-                return res.status(500).json({message:'Internal server error'});
-            }
-            if(result.rows.length > 0){
-                console.log('Personal email already exists');
-                return res.status(400).json({message:'User personal email already exists'});
-            }
-
-            bcrypt.hash(password_hash,10,(error,hashedPassword)=>{
-                if(error){
-                    console.error('Error during password hashing:',error);
-                    return res.status(500).jaon({message:'Internal server error'});
-                }
-                const verificationToken=jwtUtils.generateToken({personal_email});
-
-                const insertQuery=`INSERT INTO SWP.users (username,personal_email,password_hash,first_name,role,organization,created_at,company_email,last_name,user_id) VALUES ($1,$2,$3,$4,$5,$6,NOW(),$7,$8,$9)`;
-                db.query(insertQuery,[username,personal_email,password_hash,first_name,role,organization,created_at,company_email,last_name,user_id],
-                    (error,insertResult)=>{
-                        if(error){
-                            console.error('Error during user insertion:',error);
-                            return res.status(500).json({message:'Internal server error'});
-                        }
-
-                        console.log('User registered successfully');
-                        sendTokenEmail(personal_email,verificationToken,first_name,last_name);
-                        res.status(200).json({message:'Registration successfuul. Check your email for the verfication token'});
-                    }
-                )
-            })
-        })
-    })
+      });
+    }
+  });
 }
 
 module.exports={
-register,
+
 forgotPassword,
 resendResetToken,
 resetPassword,
+register,
+login,
 
 };
