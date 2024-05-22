@@ -21,7 +21,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
   function forgotPassword(req, res) {
     const { personalEmail } = req.body;
   
-    const query = 'SELECT * FROM SWP.users WHERE "personal_email" = $1';
+    const query = 'SELECT * FROM public.users WHERE "personal_email" = $1';
     db.query(query, [personalEmail], (fetchUserNameError, result) => {
       if (fetchUserNameError) {
         console.error(fetchUserNameError);
@@ -35,7 +35,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
       const resetToken = jwtUtils.generateToken({ personalEmail });
   
       const userId = result.rows[0].userid; 
-      const insertQuery = 'INSERT INTO SWP.SWP_reset_tokens ("userId", token) VALUES ($1, $2)';
+      const insertQuery = 'INSERT INTO public.SWP_reset_tokens ("userId", token) VALUES ($1, $2)';
       db.query(insertQuery, [userId, resetToken], (insertError) => {
         if (insertError) {
           console.error(insertError);
@@ -51,7 +51,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
   function resendResetToken(req, res) {
     const { personalEmail } = req.body;
   
-    const checkUserQuery = 'SELECT * FROM SWP.users WHERE "personal_email" = $1';
+    const checkUserQuery = 'SELECT * FROM public.users WHERE "personal_email" = $1';
     db.query(checkUserQuery, [personalEmail], (checkError, userResult) => {
       if (checkError) {
         console.log('Error checking user availability:', error);
@@ -64,7 +64,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
       const userId = userResult[0].UserId;
       const verificationToken = jwtUtils.generateToken({ personalEmail: personalEmail });
   
-      const updateQuery = 'UPDATE SWP.swp_reset_tokens SET token = $1 WHERE "userId" = $2';
+      const updateQuery = 'UPDATE public.swp_reset_tokens SET token = $1 WHERE "userId" = $2';
       db.query(updateQuery, [verificationToken, userId], (updateError, updateResult) => {
         if (updateError) {
           console.log('Error updating Resend link:', error);
@@ -81,7 +81,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
   function resetPassword(req, res) {
     const { token, password } = req.body;
   
-    const query = 'SELECT * FROM SWP.swp_reset_tokens WHERE token = $1';
+    const query = 'SELECT * FROM public.swp_reset_tokens WHERE token = $1';
     db.query(query, [token], (checkTokenError, result) => {
       if (checkTokenError) {
         console.log('Error during reset password query:', checkTokenError);
@@ -100,7 +100,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
           return res.status(401).json({ message: 'Error during password hashing' });
         }
         
-        const updateQuery = 'UPDATE SWP.users SET Password = $1 WHERE user_id = $2';
+        const updateQuery = 'UPDATE public.users SET Password = $1 WHERE user_id = $2';
         db.query(updateQuery, [hashedPassword, userId], (updateError, updateResult) => {
           if (updateError) {
             console.log('Error updating password:', updateError);
@@ -108,7 +108,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
           }
   
           // Delete the reset token from the reset_tokens table
-          const deleteQuery = 'DELETE FROM SWP.swp_reset_tokens WHERE token = $1';
+          const deleteQuery = 'DELETE FROM public.swp_reset_tokens WHERE token = $1';
           db.query(deleteQuery, [token], (deleteError, deleteResult) => {
             if (deleteError) {
               console.error('Error deleting reset token:', deleteError);
