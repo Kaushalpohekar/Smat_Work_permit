@@ -127,44 +127,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
 
 
 
-// function sendTokenEmail(personal_email,verificationToken,first_name,last_name){
-//     const transporter =nodemailer.createTransport({
-//         host:'smtp.gmail.com',
-//         port:465,
-//         secure:true,
-//         auth:{
-//             user:'kpohekar19@gmail.com',
-//             pass:'woptjevenzhqmrpp',
-//         },
-//     });
 
-//     const templatePath =path.join(__dirname,'../mail.body/email-template.ejs');
-//     fs.readFile(templatePath,'utf8',(err,templateData)=>{
-//         if(err){
-//             console.error('Error reading email template:',err);
-//             return;
-//         }
-
-//         const compiledTemplate=ejs.compile(templateData);
-
-//         const html = compiledTemplate({resetToken});
-
-//         const mailOptions={
-//             from:'kpohekar19@gmail.com',
-//             to:personal_email,
-//             subject:'token',
-//             html:html,
-//         };
-//         transporter.sendMail(mailOptions,(err,info)=>{
-//             if(err){
-//                 console.error('Error sending email:',err);
-//             }else{
-//                 console.log('Email sent:',info.response);
-//             }
-//         });
-//     });
-
-// }
 
 
 function sendTokenEmail(personal_email, verificationToken) {
@@ -321,41 +284,41 @@ function login(req, res) {
   });
 }
 
-function resetToken(req,res){
-  const {personal_email}=req.body;
+// function resetToken(req,res){
+//   const {personal_email}=req.body;
 
-  const checkUserquery=`SELECT * FROM public.users WHERE personal_email=$1`;
-  db.query(checkUserquery,[personal_email],(error,userResult)=>{
-    if(error){
-      console.error('Error checking user availbility:',error);
-      return res.status(500).json({message:'Internal server error'});
-    }
-    if(userResult.rows.length === 0){
-      return res.status(500).json({message:'User not found'});
-    }
-    if(userResult.rows[0].verified === true){
-      return res.status(400).json({message:'User already verified'});
-    } else {
-      const verificationToken = jwtUtils.generateToken({personal_email:personal_email});
+//   const checkUserquery=`SELECT * FROM public.users WHERE personal_email=$1`;
+//   db.query(checkUserquery,[personal_email],(error,userResult)=>{
+//     if(error){
+//       console.error('Error checking user availbility:',error);
+//       return res.status(500).json({message:'Internal server error'});
+//     }
+//     if(userResult.rows.length === 0){
+//       return res.status(500).json({message:'User not found'});
+//     }
+//     if(userResult.rows[0].verified === true){
+//       return res.status(400).json({message:'User already verified'});
+//     } else {
+//       const verificationToken = jwtUtils.generateToken({personal_email:personal_email});
 
-      const updateQuery = `UPDATE public.users SET verificationToken =$1 WHERE personal_email = $2`;
-      db.query(updateQuery,[verificationToken,personal_email],(error,updatedResult)=>{
-        if(error){
-          console.error('Error updating verfication token:',error);
-          return res.status(500).json({message:'Internal server error'});
-        }
-        try{
-          sendTokenEmail(personal_email,verificationToken);
-          console.log('Verification token resent');
-          res.josn({message:'Verification token resent. Check your email for new token.'});
-        }catch(error){
-          console.error('Error sending verfication token:',error);
-          res.status(500).json({message:'Internal server error'});
-        }
-      });
-    }
-  });
-}
+//       const updateQuery = `UPDATE public.users SET verificationToken =$1 WHERE personal_email = $2`;
+//       db.query(updateQuery,[verificationToken,personal_email],(error,updatedResult)=>{
+//         if(error){
+//           console.error('Error updating verfication token:',error);
+//           return res.status(500).json({message:'Internal server error'});
+//         }
+//         try{
+//           sendTokenEmail(personal_email,verificationToken);
+//           console.log('Verification token resent');
+//           res.josn({message:'Verification token resent. Check your email for new token.'});
+//         }catch(error){
+//           console.error('Error sending verfication token:',error);
+//           res.status(500).json({message:'Internal server error'});
+//         }
+//       });
+//     }
+//   });
+// }
 
 module.exports={
 
