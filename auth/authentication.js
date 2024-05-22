@@ -121,6 +121,12 @@ encryptKey = "SenseLive-Smart-Work-Permit";
     });
   }
   
+ 
+
+
+
+
+
 function sendTokenEmail(personal_email,verificationToken,first_name,last_name){
     const transporter =nodemailer.createTransport({
         host:'smtp.gmail.com',
@@ -132,72 +138,70 @@ function sendTokenEmail(personal_email,verificationToken,first_name,last_name){
         },
     });
 
-    const templatePath =path.join(__dirname,);
-    fs.readFile(templatePath,'utf8',(err,templateData)=>{
-        if(err){
-            console.error('Error reading email template:',err);
+    const templatePath = path.join(__dirname, '../mail.body/email-template.ejs');
+    fs.readFile(templatePath, 'utf8', (err, templateData) => {
+        if (err) {
+            console.error('Error reading email template:', err);
             return;
         }
 
-        const compiledTemplate=ejs.compile(templateData);
+        const compiledTemplate = ejs.compile(templateData);
 
-        const html = compiledTemplate({resetToken});
+        const html = compiledTemplate({ verificationToken }); // Pass verificationToken to the template
 
-        const mailOptions={
-            from:'kpohekar19@gmail.com',
-            to:personal_email,
-            subject:'Reset Password Link',
-            html:html,
+        const mailOptions = {
+            from: 'kpohekar19@gmail.com',
+            to: personal_email,
+            subject: 'Verification Token', // Update subject if necessary
+            html: html,
         };
-        transporter.sendMail(mailOptions,(err,info)=>{
-            if(err){
-                console.error('Error sending email:',err);
-            }else{
-                console.log('Email sent:',info.response);
+        transporter.sendMail(mailOptions, (err, info) => {
+            if (err) {
+                console.error('Error sending email:', err);
+            } else {
+                console.log('Email sent:', info.response);
             }
         });
     });
-
 }
 
 
 
-function register(req,res){
-    const {
-        personal_email,
-        password_hash,
-        first_name,
-        role,
-        organization,
-        company_email,
-        last_name
-    } = req.body;
+function register(req, res) {
+  const {
+      personal_email,
+      password_hash,
+      first_name,
+      role,
+      organization,
+      company_email,
+      last_name
+  } = req.body;
 
-    const user_id=uuidv4();
+  const user_id = uuidv4();
+  const username = `${first_name} ${last_name}`;
 
-    const username = `${first_name} ${last_name}`;
-    const emailCheckQuery = `SELECT * FROM public.users WHERE company_email=$1`;
-    db.query(emailCheckQuery,[company_email],(error,Result)=>{
-        if(error){
-            console.error('Error during email check:',error);
-            return res.status(500).json({message:'Internal server error'});
-        }
-        if(Result.rows.length > 0){
-            console.log('Company email already exist');
-            return res.status(500).json({message:'company email already exists'});
-        }
+  const emailCheckQuery = `SELECT * FROM public.users WHERE company_email = $1`;
+  db.query(emailCheckQuery, [company_email], (error, result) => {
+      if (error) {
+          console.error('Error during company email check:', error);
+          return res.status(500).json({ message: 'Internal server error' });
+      }
+      if (result.rows.length > 0) {
+          console.log('Company email already exists');
+          return res.status(400).json({ message: 'Company email already exists' });
+      }
 
-        const p_emailCheckQuery=`SELECT * FROM public.users WHERE personal_email=$1`;
-
-        db.query(p_emailCheckQuery,[personal_email],(error,result)=>{
-            if (error){
-                console.error('Error during personal email check:',error);
-                return res.status(500).json({message:'Internal server error'});
-            }
-            if(result.rows.length > 0){
-                console.log('Personal email already exists');
-                return res.status(400).json({message:'User personal email already exists'});
-            }
+      const p_emailCheckQuery = `SELECT * FROM public.users WHERE personal_email = $1`;
+      db.query(p_emailCheckQuery, [personal_email], (error, result) => {
+          if (error) {
+              console.error('Error during personal email check:', error);
+              return res.status(500).json({ message: 'Internal server error' });
+          }
+          if (result.rows.length > 0) {
+              console.log('Personal email already exists');
+              return res.status(400).json({ message: 'User personal email already exists' });
+          }
 
             bcrypt.hash(password_hash,10,(error,hashedPassword)=>{
                 if(error){
@@ -224,42 +228,10 @@ function register(req,res){
     })
 }
 
-
-function getUserDetails(req, res) {
-  const token = req.headers.authorization.split(' ')[1];
-    const decodedToken = jwtUtils.verifyToken(token);
-    if (!decodedToken) {
-      console.log('Invalid Token');
-      return res.status(401).json({ message: 'Invalid token' });
-    }
-    const fetchUserQuery = 'SELECT * FROM public.users WHERE "username" = $1';
-    const fetchCompanyQuery = `SELECT * FROM public.company_info WHERE "companyid" = $1`;
-    db.query(fetchUserQuery, [decodedToken.userName], (checkUserError, result) => {
-      if (checkUserError) {
-        console.log('Error executing query:', error);
-        return res.status(401).json({ message: 'Error executing user name query'});
-      }
-      if (result.rowCount === 0) {
-        // Log the error and response
-        return res.status(404).json({ message: 'User not found' });
-      }
-      const userDetail = result.rows[0];
-      db.query(fetchCompanyQuery, [userDetail.companyId], (fetchCompanyError, fetchCompanyResult) => {
-        if(fetchCompanyError){
-          console.log(fetchCompanyError);
-          return res.status(401).json({message : 'error fetching company details'});
-        }
-        companyDetails = fetchCompanyResult.rows[0];
-        res.status(200).json({getUserDetails : userDetail, companyDetails : companyDetails});
-      })
-    });
-}
-
 module.exports={
-register,
+
 forgotPassword,
 resendResetToken,
 resetPassword,
-getUserDetails,
 
 };
