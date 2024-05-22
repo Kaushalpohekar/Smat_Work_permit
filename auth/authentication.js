@@ -350,6 +350,151 @@ function getUserDetails(req, res) {
     });
 }
 
+// function block(req,res){
+//   const {user_id} = req.params;
+//   const {action} = req.body;
+
+//   if(action !== 'block' && action !== 'unblock'){
+//     return res.status(400).json({message:'Invalid action. Use "block" or "unblock".'});
+//   }
+
+//   const blockValue = action ==='block' ? 1:0;
+
+//   const checkQuery = `SELECT block FROM public.users WHERE user_id = $1`;
+
+//   db.query(checkQuery,[user_id],(checkError, checkResult)=>{
+//     if(checkError){
+//       console.error('Error checking user block status')
+//     }
+//     if(checkResult.rows.length === 0){
+//       return res.status(404).json({message:'User not found'});
+//     }
+//     const currentBlockStatus = checkResult.rows[0].block;
+
+//     if (currentBlockStatus === blockValue) {
+//       const statusMessage = blockValue === 1 ? 'already blocked' : 'already unblocked';
+//       return res.status(200).json({ message: `User is ${statusMessage}` });
+//     }
+
+//     const updateQuery = 'UPDATE public.users SET block = $1 WHERE user_id = $2';
+
+//     db.query(updateQuery, [blockValue, user_id], (updateError, updateResult) => {
+//       if (updateError) {
+//         console.error(`Error during user ${action}ing:`, updateError);
+//         return res.status(500).json({ message: `Error ${action}ing user` });
+//       }
+
+//       if (updateResult.rowCount === 0) {
+//         return res.status(404).json({ message: 'User not found' });
+//       }
+
+//       const successMessage = `User ${action}ed successfully`;
+//       res.status(200).json({ message: successMessage });
+//     });
+
+
+
+
+//   })
+
+// }
+
+// function block(req, res) {
+//   const {user_id}  = req.params;
+//   const { action } = req.body;
+
+//   if (action !== 'block' && action !== 'unblock') {
+//     return res.status(400).json({ message: 'Invalid action. Use "block" or "unblock".' });
+//   }
+
+//   const blockValue = action === 'block' ? 1 : 0;
+
+//   const checkQuery = 'SELECT * FROM public.users WHERE user_id = $1';
+
+//   db.query(checkQuery, [user_id], (checkError, checkResult) => {
+//     if (checkError) {
+//       console.error('Error checking user block status:', checkError);
+//       return res.status(500).json({ message: 'Error checking user block status' });
+//     }
+
+//     if (checkResult.rows.length === 0) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+
+//     const currentBlockStatus = checkResult.rows[0].block;
+
+//     if (currentBlockStatus === blockValue) {
+//       const statusMessage = blockValue === 1 ? 'already blocked' : 'already unblocked';
+//       return res.status(200).json({ message: `User is ${statusMessage}` });
+//     }
+
+//     const updateQuery = 'UPDATE public.users SET block = $1 WHERE user_id = $2';
+
+//     db.query(updateQuery, [blockValue, user_id], (updateError, updateResult) => {
+//       if (updateError) {
+//         console.error(`Error during user ${action}ing:`, updateError);
+//         return res.status(500).json({ message: `Error ${action}ing user` });
+//       }
+
+//       if (updateResult.rowCount === 0) {
+//         return res.status(404).json({ message: 'User not found' });
+//       }
+
+//       const successMessage = `User ${action}ed successfully`;
+//       res.status(200).json({ message: successMessage });
+//     });
+//   });
+// }
+
+function block(req, res) {
+  const { user_id } = req.params; // Ensure user_id is correctly extracted as a string
+  const { action } = req.body;
+
+  if (action !== 'block' && action !== 'unblock') {
+    return res.status(400).json({ message: 'Invalid action. Use "block" or "unblock".' });
+  }
+
+  const blockValue = action === 'block' ? 1 : 0;
+
+  const checkQuery = 'SELECT block FROM public.users WHERE user_id = $1';
+
+  db.query(checkQuery, [user_id], (checkError, checkResult) => {
+    if (checkError) {
+      console.error('Error checking user block status:', checkError);
+      return res.status(500).json({ message: 'Error checking user block status' });
+    }
+
+    if (checkResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const currentBlockStatus = checkResult.rows[0].block;
+
+    if (currentBlockStatus === blockValue) {
+      const statusMessage = blockValue === 1 ? 'already blocked' : 'already unblocked';
+      return res.status(200).json({ message: `User is ${statusMessage}` });
+    }
+
+    const updateQuery = 'UPDATE public.users SET block = $1 WHERE user_id = $2';
+
+    db.query(updateQuery, [blockValue, user_id], (updateError, updateResult) => {
+      if (updateError) {
+        console.error(`Error during user ${action}ing:`, updateError);
+        return res.status(500).json({ message: `Error ${action}ing user` });
+      }
+
+      if (updateResult.rowCount === 0) {
+        return res.status(404).json({ message: 'User not found' });
+      }
+
+      const successMessage = `User ${action}ed successfully`;
+      res.status(200).json({ message: successMessage });
+    });
+  });
+}
+
+
+
 module.exports={
 
 forgotPassword,
@@ -358,5 +503,6 @@ resetPassword,
 register,
 login,
 getUserDetails,
+block,
 
 };
