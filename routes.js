@@ -13,5 +13,8 @@ router.post('/login',auth.login);
 router.put('/users/:User_id/block', auth.block);
 
 
+router.post('/answer',dashboard.postAns);
+
+
 
 module.exports = router;
