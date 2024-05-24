@@ -2,8 +2,9 @@ const express = require('express');
 const router = express.Router();
 const auth = require('./auth/authentication.js');
 const dashboard = require('./dashboard/dashboard.js');
-//const SA = require('./superadmin/SA.js');
+const SA = require('./superadmin/SA.js');
 
+//Authentication
 router.post('/register',auth.register);
 router.post('/forgot', auth.forgotPassword);
 router.post('/reset-password', auth.resetPassword);
@@ -13,5 +14,12 @@ router.post('/login',auth.login);
 router.put('/users/:User_id/block', auth.block);
 
 
+
+//SuperAdmin
+// router.post('/forms', SA.formscreate);
+// router.get('/forms', SA.formread);
+// router.get('/forms/:form_id', SA.getformsById);
+// router.put('/forms/:form_id', SA.updateForm);
+// router.delete('/forms/:form_id', SA.deleteForm);
 
 module.exports = router;
