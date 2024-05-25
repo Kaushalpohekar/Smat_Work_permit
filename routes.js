@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('./auth/authentication.js');
 const dashboard = require('./dashboard/dashboard.js');
-const SA = require('./superadmin/SA.js');
+const SA = require('./SuperAdmin/SA.js');
 
 //Authentication
 router.post('/register',auth.register);
@@ -14,7 +14,8 @@ router.post('/login',auth.login);
 router.put('/users/:User_id/block', auth.block);
 
 
-router.post('/answer',dashboard.postAns);
+// Dashboard
+router.post('/answer/:user_id',dashboard.postAns);
 
 
 
