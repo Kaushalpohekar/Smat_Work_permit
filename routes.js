@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const auth = require('./auth/authentication.js');
 const dashboard = require('./dashboard/dashboard.js');
+
+const organizationAdmin = require('./dashboard/organization.js')
 const SA = require('./superadmin/SA.js');
 
 //Authentication
@@ -25,4 +27,22 @@ router.post('/answer',dashboard.postAns);
 // router.put('/forms/:form_id', SA.updateForm);
 // router.delete('/forms/:form_id', SA.deleteForm);
 
+
+//Organization Admin
+
+//categoryies
+router.post('/createCategory',organizationAdmin.createCategory);
+router.put('/updateCategory/:category_id',organizationAdmin.updateCateogry);
+router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
+router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
+router.get('/getAllCategory',organizationAdmin.getAllCategories);
+
+
+//forms
+
+router.post('/createForms/:category_id',organizationAdmin.createForm);
+router.get('/FormById/:form_id',organizationAdmin.getFormById);
+router.get('/getAllForms',organizationAdmin.getAllForms);
+router.put('/updateForm/:form_id',organizationAdmin.updateform);
+router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
 module.exports = router;
