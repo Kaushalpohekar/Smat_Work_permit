@@ -5,7 +5,7 @@ const dashboard = require('./dashboard/dashboard.js');
 
 const organizationAdmin = require('./dashboard/organization.js')
 const SA = require('./superadmin/SA.js');
-const SA = require('./SuperAdmin/SA.js');
+const SA = require('/SuperAdmin/SA.js');
 
 //Authentication
 router.post('/register',auth.register);
