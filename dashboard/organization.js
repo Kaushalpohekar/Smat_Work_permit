@@ -215,6 +215,149 @@ db.query(deleteFormQuery,[form_id],(error,result)=>{
 }
 
 
+// form Questions
+async function createQuestion(req, res) {
+    const { form_id } = req.params;
+    const { question_text, question_type, options } = req.body;
+    const questionId = uuidv4();
+
+    const insertQuestionQuery = `
+        INSERT INTO questions (question_id, form_id, question_text, question_type) 
+        VALUES ($1, $2, $3, $4)
+        RETURNING question_id`;
+
+    db.query(insertQuestionQuery, [questionId, form_id, question_text, question_type], (error, result) => {
+        if (error) {
+            console.error('Error creating question:', error);
+            res.status(500).json({ message: 'Failed to create question' });
+            return;
+        }
+
+        if (question_type === 'multiple_choice' && Array.isArray(options)) {
+            const insertOptionsQuery = `INSERT INTO options (option_id, question_id, option_text) VALUES ($1, $2, $3)`;
+            const promises = options.map(optionText => {
+                const option_id = uuidv4();
+                return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
+            });
+            
+            Promise.all(promises)
+                .then(() => {
+                    res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
+                })
+                .catch(err => {
+                    console.error('Error creating question options:', err);
+                    res.status(500).json({ message: 'Failed to create question options' });
+                });
+        } else if (question_type === 'yes_no') {
+            const insertOptionsQuery = `
+                INSERT INTO options (option_id, question_id, option_text) 
+                VALUES ($1, $2, $3)`;
+
+            const yesOptionId = uuidv4();
+            const noOptionId = uuidv4();
+
+            db.query(insertOptionsQuery, [yesOptionId, questionId, 'Yes'], (error) => {
+                if (error) {
+                    console.error('Error creating "Yes" option:', error);
+                    res.status(500).json({ message: 'Failed to create "Yes" option' });
+                    return;
+                }
+                db.query(insertOptionsQuery, [noOptionId, questionId, 'No'], (error) => {
+                    if (error) {
+                        console.error('Error creating "No" option:', error);
+                        res.status(500).json({ message: 'Failed to create "No" option' });
+                        return;
+                    }
+                    res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
+                });
+            });
+        } else if (question_type === 'radio_button' && Array.isArray(options)) {
+            const insertOptionsQuery = `INSERT INTO options (option_id, question_id, option_text) VALUES ($1, $2, $3)`;
+            const promises = options.map(optionText => {
+                const option_id = uuidv4();
+                return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
+            });
+            
+            Promise.all(promises)
+                .then(() => {
+                    res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
+                })
+                .catch(err => {
+                    console.error('Error creating question options:', err);
+                    res.status(500).json({ message: 'Failed to create question options' });
+                });
+        } else {
+            res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
+        }
+    });
+}
+
+
+
+async function updateQuestion(req, res) {
+    const questionId = req.params.question_id;
+    const { question_text, question_type, options } = req.body;
+
+    const updateQuery = `UPDATE questions SET question_text = $1, question_type = $2 WHERE question_id = $3`;
+    db.query(updateQuery, [question_text, question_type, questionId], async (error, result) => {
+        try {
+            if (error) {
+                console.error('Error updating question:', error);
+                res.status(500).json({ message: 'Failed to update question' });
+                return;
+            }
+            
+            if (question_type === 'multiple_choice' && Array.isArray(options)) {
+                await db.query(`DELETE FROM options WHERE question_id = $1`, [questionId]);
+
+                const insertOptionsQuery = `INSERT INTO options (option_id, question_id, option_text) VALUES ($1, $2, $3)`;
+                const promises = options.map(optionText => {
+                    const option_id = uuidv4();
+                    return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
+                });
+
+                await Promise.all(promises);
+            }
+
+            res.status(200).json({ message: 'Question updated successfully' });
+        } catch (err) {
+            console.error('Error updating question:', err);
+            res.status(500).json({ message: 'Failed to update question' });
+        }
+    });
+}
+
+
+async function deleteQuestion(req,res){
+    const questionId = req.params.question_id;
+    const deleteQuestionQuery = `DELETE FROM questions WHERE question_id = $1`;
+    db.query(deleteQuestionQuery,[questionId],(error)=>{
+        if(error){
+            console.error('Error deleting question:',error);
+            res.status(500).json({message:'Failed to delete question'});
+        }
+        else{
+            res.status(200).json({message:'Question deleted successfully'});
+        }
+    })
+}
+
+
+async function getQuestionByFormId(req,res){
+    const {form_id} = req.params;
+    const getQuestionQuery=`SELECT * FROM questions WHERE form_id = $1`;
+    db.query(getQuestionQuery,[form_id],(error,result)=>{
+        if(error){
+            console.error('Error fetching questions:',error);
+            res.status(500).json({message:'Failed to get questions'});
+        }
+        else{
+            const questions = result.rows;
+            res.status(200).json({questions});
+        }
+
+    })
+}
 
 module.exports={
     //category
@@ -231,10 +374,9 @@ module.exports={
     updateform,
     deleteForm,
 
-
-
-
-
-
-
+    //form questions
+    createQuestion,
+    updateQuestion,
+    deleteQuestion,
+    getQuestionByFormId,
 }

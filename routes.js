@@ -3,9 +3,11 @@ const router = express.Router();
 const auth = require('./auth/authentication.js');
 const dashboard = require('./dashboard/dashboard.js');
 
+
 const organizationAdmin = require('./dashboard/organization.js')
-const SA = require('./superadmin/SA.js');
-const SA = require('/SuperAdmin/SA.js');
+
+//const SA = require('/superadmin/SA.js');
+//const SA = require('/SuperAdmin/SA.js');
 
 //Authentication
 router.post('/register',auth.register);
@@ -48,3 +50,11 @@ router.get('/getAllForms',organizationAdmin.getAllForms);
 router.put('/updateForm/:form_id',organizationAdmin.updateform);
 router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
 module.exports = router;
+
+
+//questions
+
+router.post('/questionCreate/:form_id',organizationAdmin.createQuestion);
+router.put('/updatequestion/:question_id',organizationAdmin.updateQuestion);
+router.delete('/deletequestion/:question_id',organizationAdmin.deleteQuestion);
+router.get('/getquestionbyid/:form_id',organizationAdmin.getQuestionByFormId);
