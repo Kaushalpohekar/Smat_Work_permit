@@ -49,7 +49,7 @@ router.get('/FormById/:form_id',organizationAdmin.getFormById);
 router.get('/getAllForms',organizationAdmin.getAllForms);
 router.put('/updateForm/:form_id',organizationAdmin.updateform);
 router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
-module.exports = router;
+
 
 
 //questions
