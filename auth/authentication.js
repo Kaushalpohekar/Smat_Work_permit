@@ -358,57 +358,57 @@ function register(req, res) {
 
 
 
-function login(req, res) {
-  const { username, password_hash } = req.body;
-  const query = `SELECT * FROM public.users WHERE username = $1`;
+// function login(req, res) {
+//   const { username, password_hash } = req.body;
+//   const query = `SELECT * FROM public.users WHERE username = $1`;
   
-  db.query(query, [username], (error, result) => {
-    try {
-      if (error) {
-        console.error('Error during login:', error);
-        throw new Error('Error during login');
-      }
+//   db.query(query, [username], (error, result) => {
+//     try {
+//       if (error) {
+//         console.error('Error during login:', error);
+//         throw new Error('Error during login');
+//       }
       
-      const rows = result.rows;
+//       const rows = result.rows;
       
-      if (rows.length === 0) {
-        return res.status(404).json({ message: 'User does not exist!' });
-      }
+//       if (rows.length === 0) {
+//         return res.status(404).json({ message: 'User does not exist!' });
+//       }
       
-      const user = rows[0];
+//       const user = rows[0];
       
-      if (user.verified === '0') {
-        return res.status(401).json({ message: 'User is not verified. Please verify your account.' });
-      }
+//       if (user.verified === '0') {
+//         return res.status(401).json({ message: 'User is not verified. Please verify your account.' });
+//       }
       
-      if (user.blocked === '1') {
-        return res.status(401).json({ message: 'User is blocked. Please contact support.' });
-      }
+//       if (user.blocked === '1') {
+//         return res.status(401).json({ message: 'User is blocked. Please contact support.' });
+//       }
       
-      bcrypt.compare(password_hash, user.password_hash, (error, isPasswordValid) => {
-        try {
-          if (error) {
-            console.error('Error during password comparison', error);
-            throw new Error('Error during password comparison');
-          }
+//       bcrypt.compare(password_hash, user.password_hash, (error, isPasswordValid) => {
+//         try {
+//           if (error) {
+//             console.error('Error during password comparison', error);
+//             throw new Error('Error during password comparison');
+//           }
           
-          if (!isPasswordValid) {
-            return res.status(401).json({ message: 'Invalid credentials' });
-          }
+//           if (!isPasswordValid) {
+//             return res.status(401).json({ message: 'Invalid credentials' });
+//           }
           
-          const token = jwtUtils.generateToken({ Username: user.username });
-          res.json({ token });
-        } catch (error) {
-          console.error(error);
-          res.status(500).json({ message: 'Internal server error' });
-        }
-      });
-    } catch (error) {
-      console.error(error);
-      res.status(500).json({ message: 'Internal server error' });
-    }
-  });
-}
+//           const token = jwtUtils.generateToken({ Username: user.username });
+//           res.json({ token });
+//         } catch (error) {
+//           console.error(error);
+//           res.status(500).json({ message: 'Internal server error' });
+//         }
+//       });
+//     } catch (error) {
+//       console.error(error);
+//       res.status(500).json({ message: 'Internal server error' });
+//     }
+//   });
+// }
 
 // function resetToken(req,res){
 //   const {personal_email}=req.body;
@@ -445,6 +445,113 @@ function login(req, res) {
 //     }
 //   });
 // }
+
+
+// function login(req, res) {
+//   const { usernameOrEmail, password } = req.body;
+//   const query = `SELECT * FROM public.users WHERE username = $1 OR personal_email = $2`;
+
+//   db.query(query, [usernameOrEmail, usernameOrEmail], (error, result) => {
+//       try {
+//           if (error) {
+//               console.error('Error during login:', error);
+//               throw new Error('Error during login');
+//           }
+
+//           const rows = result.rows;
+
+//           if (rows.length === 0) {
+//               return res.status(404).json({ message: 'User does not exist!' });
+//           }
+
+//           const user = rows[0];
+
+//           // if (user.verified === '0') {
+//           //     return res.status(401).json({ message: 'User is not verified. Please verify your account.' });
+//           // }
+
+//           if (user.blocked === '1') {
+//               return res.status(401).json({ message: 'User is blocked. Please contact support.' });
+//           }
+
+//           bcrypt.compare(password, user.password_hash, (error, isPasswordValid) => {
+//               try {
+//                   if (error) {
+//                       console.error('Error during password comparison', error);
+//                       throw new Error('Error during password comparison');
+//                   }
+
+//                   if (!isPasswordValid) {
+//                       return res.status(401).json({ message: 'Invalid credentials' });
+//                   }
+
+//                   const token = jwtUtils.generateToken({ Username: user.username });
+//                   res.json({ token });
+//               } catch (error) {
+//                   console.error(error);
+//                   res.status(500).json({ message: 'Internal server error' });
+//               }
+//           });
+//       } catch (error) {
+//           console.error(error);
+//           res.status(500).json({ message: 'Internal server error' });
+//       }
+//   });
+// }
+
+function login(req, res) {
+  const { usernameOrEmail, password } = req.body;
+  const query = `SELECT * FROM public.users WHERE username = $1 OR personal_email = $2`;
+
+  db.query(query, [usernameOrEmail, usernameOrEmail], (error, result) => {
+      try {
+          if (error) {
+              console.error('Error during login:', error);
+              throw new Error('Error during login');
+          }
+
+          const rows = result.rows;
+
+          if (rows.length === 0) {
+              return res.status(404).json({ message: 'User does not exist!' });
+          }
+
+          const user = rows[0];
+
+          // if (user.verified === '0') {
+          //     return res.status(401).json({ message: 'User is not verified. Please verify your account.' });
+          // }
+
+          if (user.blocked === '1') {
+              return res.status(401).json({ message: 'User is blocked. Please contact support.' });
+          }
+
+          bcrypt.compare(password, user.password_hash, (error, isPasswordValid) => {
+              try {
+                  if (error) {
+                      console.error('Error during password comparison', error);
+                      throw new Error('Error during password comparison');
+                  }
+
+                  if (!isPasswordValid) {
+                      return res.status(401).json({ message: 'Invalid credentials' });
+                  }
+
+                  const token = jwtUtils.generateToken({ Username: user.username });
+                  res.json({ token });
+              } catch (error) {
+                  console.error(error);
+                  res.status(500).json({ message: 'Internal server error' });
+              }
+          });
+      } catch (error) {
+          console.error(error);
+          res.status(500).json({ message: 'Internal server error' });
+      }
+  });
+}
+
+
 
 function getUserDetails(req, res) {
   const token = req.headers.authorization.split(' ')[1];
