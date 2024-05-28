@@ -139,6 +139,9 @@ function sendTokenEmail(personal_email, verificationToken) {
             user: 'kpohekar19@gmail.com',
             pass: 'woptjevenzhqmrpp',
         },
+        tls:{
+          rejectUnauthorized:false
+        }
     });
 
     const templatePath = path.join(__dirname, '../mail.body/email-template.ejs');
@@ -170,17 +173,80 @@ function sendTokenEmail(personal_email, verificationToken) {
 
 
 
+
+
+// function register(req, res) {
+//   const {
+//       personal_email,
+//       password_hash,
+//       first_name,
+//       role,
+//       organization,
+//       company_email,
+//       last_name
+//   } = req.body;
+
+//   const user_id = uuidv4();
+//   const username = `${first_name} ${last_name}`;
+
+//   const emailCheckQuery = `SELECT * FROM public.users WHERE company_email = $1`;
+//   db.query(emailCheckQuery, [company_email], (error, result) => {
+//       if (error) {
+//           console.error('Error during company email check:', error);
+//           return res.status(500).json({ message: 'Internal server error' });
+//       }
+//       if (result.rows.length > 0) {
+//           console.log('Company email already exists');
+//           return res.status(400).json({ message: 'Company email already exists' });
+//       }
+
+//       const p_emailCheckQuery = `SELECT * FROM public.users WHERE personal_email = $1`;
+//       db.query(p_emailCheckQuery, [personal_email], (error, result) => {
+//           if (error) {
+//               console.error('Error during personal email check:', error);
+//               return res.status(500).json({ message: 'Internal server error' });
+//           }
+//           if (result.rows.length > 0) {
+//               console.log('Personal email already exists');
+//               return res.status(400).json({ message: 'User personal email already exists' });
+//           }
+
+//           bcrypt.hash(password_hash, 10, (error, hashedPassword) => {
+//               if (error) {
+//                   console.error('Error during password hashing:', error);
+//                   return res.status(500).json({ message: 'Internal server error' });
+//               }
+
+//               const verificationToken = jwtUtils.generateToken({ personal_email });
+//               const insertQuery = `INSERT INTO public.users (username, personal_email, password_hash, first_name, role, organization, created_at, company_email, last_name, user_id) 
+//                                    VALUES ($1, $2, $3, $4, $5, $6, NOW(), $7, $8, $9)`;
+
+//               db.query(insertQuery, [username, personal_email, hashedPassword, first_name, role, organization, company_email, last_name, user_id], (error, insertResult) => {
+//                   if (error) {
+//                       console.error('Error during user insertion:', error);
+//                       return res.status(500).json({ message: 'Internal server error' });
+//                   }
+
+//                   console.log('User registered successfully');
+//                   sendTokenEmail(personal_email, verificationToken);
+//                   res.status(200).json({ message: 'Registration successful. Check your email for the verification token'});
+//               });
+//           });
+//       });
+//   });
+// }
+
 function register(req, res) {
   const {
-      personal_email,
-      password_hash,
-      first_name,
-      role,
-      organization,
-      company_email,
-      last_name
+      FirstName: first_name,
+      LastName: last_name,
+      CompanyName: organization,
+      PersonalEmail: personal_email,
+      CompanyEmail: company_email,
+      password: password_hash
   } = req.body;
 
+  const role = 'Admin'; // Default role is set to Admin
   const user_id = uuidv4();
   const username = `${first_name} ${last_name}`;
 
@@ -203,7 +269,7 @@ function register(req, res) {
           }
           if (result.rows.length > 0) {
               console.log('Personal email already exists');
-              return res.status(400).json({ message: 'User personal email already exists' });
+              return res.status(400).json({ message: 'Personal email already exists' });
           }
 
           bcrypt.hash(password_hash, 10, (error, hashedPassword) => {
@@ -224,7 +290,7 @@ function register(req, res) {
 
                   console.log('User registered successfully');
                   sendTokenEmail(personal_email, verificationToken);
-                  res.status(200).json({ message: 'Registration successful. Check your email for the verification token'});
+                  res.status(200).json({ message: 'Registration successful. Check your email for the verification token' });
               });
           });
       });

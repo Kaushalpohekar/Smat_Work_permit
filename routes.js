@@ -58,3 +58,15 @@ router.post('/questionCreate/:form_id',organizationAdmin.createQuestion);
 router.put('/updatequestion/:question_id',organizationAdmin.updateQuestion);
 router.delete('/deletequestion/:question_id',organizationAdmin.deleteQuestion);
 router.get('/getquestionbyid/:form_id',organizationAdmin.getQuestionByFormId);
+
+
+
+
+
+
+
+
+
+
+
+module.exports=router;
