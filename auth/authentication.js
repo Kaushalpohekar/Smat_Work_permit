@@ -13,56 +13,40 @@ const { error } = require('console');
 
 encryptKey = "SenseLive-Smart-Work-Permit";
 
-function login(req, res) {
-  const { usernameOrEmail, password } = req.body;
-  const query = `SELECT * FROM public.users WHERE username = $1 OR personal_email = $2`;
+async function login(req, res) {
+    const { usernameOrEmail, password } = req.body;
+    const query = `SELECT * FROM public.users WHERE username = $1 OR personal_email = $2`;
 
-  db.query(query, [usernameOrEmail, usernameOrEmail], (error, result) => {
-      try {
-          if (error) {
-              console.error('Error during login:', error);
-              throw new Error('Error during login');
-          }
+    try {
+        const result = await db.query(query, [usernameOrEmail, usernameOrEmail]);
 
-          const rows = result.rows;
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'User does not exist!' });
+        }
 
-          if (rows.length === 0) {
-              return res.status(404).json({ message: 'User does not exist!' });
-          }
+        const user = result.rows[0];
 
-          const user = rows[0];
+        if (user.blocked) {
+            return res.status(401).json({ message: 'User is blocked. Please contact support.' });
+        }
 
-          // if (user.verified === '0') {
-          //     return res.status(401).json({ message: 'User is not verified. Please verify your account.' });
-          // }
+        if (!user.verified) {
+            return res.status(401).json({ message: 'User is not Verified. Please contact support.' });
+        }
 
-          if (user.blocked === '1') {
-              return res.status(401).json({ message: 'User is blocked. Please contact support.' });
-          }
+        const isPasswordValid = await bcrypt.compare(password, user.password_hash);
 
-          bcrypt.compare(password, user.password_hash, (error, isPasswordValid) => {
-              try {
-                  if (error) {
-                      console.error('Error during password comparison', error);
-                      throw new Error('Error during password comparison');
-                  }
+        if (!isPasswordValid) {
+            return res.status(401).json({ message: 'Invalid credentials' });
+        }
 
-                  if (!isPasswordValid) {
-                      return res.status(401).json({ message: 'Invalid credentials' });
-                  }
+        const token = jwtUtils.generateToken({ Username: user.username });
+        res.status(200).json({ token });
 
-                  const token = jwtUtils.generateToken({ Username: user.username });
-                  res.json({ token });
-              } catch (error) {
-                  console.error(error);
-                  res.status(500).json({ message: 'Internal server error' });
-              }
-          });
-      } catch (error) {
-          console.error(error);
-          res.status(500).json({ message: 'Internal server error' });
-      }
-  });
+    } catch (error) {
+        console.error('Error during login:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 }
 
 async function register(req, res) {
@@ -74,6 +58,7 @@ async function register(req, res) {
         CompanyEmail,
         password,
         CompanyAddress,
+        ContactNO
     } = req.body;
 
     const role = 'Admin';
@@ -117,8 +102,8 @@ async function register(req, res) {
             return;
         }
 
-        const InsertUserQuery = `INSERT INTO public.users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10, false, false);`;
-        await client.query(InsertUserQuery, [user_id, username, PersonalEmail, password_hash, FirstName, LastName, role_id, organization_id, department_id, CompanyEmail]);
+        const InsertUserQuery = `INSERT INTO public.users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10, false, false, $11);`;
+        await client.query(InsertUserQuery, [user_id, username, PersonalEmail, password_hash, FirstName, LastName, role_id, organization_id, department_id, CompanyEmail, ContactNO]);
 
         await client.query('COMMIT');
         res.status(201).json({ message: 'User registered successfully' });
@@ -133,107 +118,87 @@ async function register(req, res) {
     }
 }
   //FORGOT PASSWORD
-function forgotPassword(req, res) {
-  const { personalEmail } = req.body;
+async function forgotPassword(req, res) {
+    const { personalEmail } = req.body;
 
-  const query = 'SELECT * FROM public.users WHERE "personal_email" = $1';
-  db.query(query, [personalEmail], (fetchUserNameError, result) => {
-    if (fetchUserNameError) {
-      console.error(fetchUserNameError);
-      return res.status(401).json({ message: 'error while fetching username'});
+    try {
+        const query = 'SELECT * FROM public.users WHERE personal_email = $1';
+        const result = await db.query(query, [personalEmail]);
+
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const resetToken = jwtUtils.generateToken({ personalEmail });
+        const userId = result.rows[0].user_id; 
+
+        const insertQuery = 'INSERT INTO public.reset_tokens (user_id, token) VALUES ($1, $2)';
+        await db.query(insertQuery, [userId, resetToken]);
+
+        await sendResetTokenEmail(personalEmail, resetToken);
+
+        res.status(200).json({ message: 'Reset token sent to your email' });
+    } catch (error) {
+        console.error('Error during password reset process:', error);
+        res.status(500).json({ message: 'Internal server error' });
     }
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    const resetToken = jwtUtils.generateToken({ personalEmail });
-
-    const userId = result.rows[0].userid; 
-    const insertQuery = 'INSERT INTO public.SWP_reset_tokens ("userId", token) VALUES ($1, $2)';
-    db.query(insertQuery, [userId, resetToken], (insertError) => {
-      if (insertError) {
-        console.error(insertError);
-        return res.status(401).json({ message: 'Error saving reset token' });
-      }
-      sendResetTokenEmail(personalEmail, resetToken);
-      res.json({ message: 'Reset token sent to your email' });
-    });
-  });
 }
   
   //RESEND RESET TOKEN
-function resendResetToken(req, res) {
-  const { personalEmail } = req.body;
+async function resendResetToken(req, res) {
+    const { personalEmail } = req.body;
 
-  const checkUserQuery = 'SELECT * FROM public.users WHERE "personal_email" = $1';
-  db.query(checkUserQuery, [personalEmail], (checkError, userResult) => {
-    if (checkError) {
-      console.log('Error checking user availability:', error);
-      return res.status(401).json({ message: 'Error checking user availability' });
-    }
+    try {
+        const checkUserQuery = 'SELECT * FROM public.users WHERE personal_email = $1';
+        const userResult = await db.query(checkUserQuery, [personalEmail]);
 
-    if (userResult.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-    const userId = userResult[0].UserId;
-    const verificationToken = jwtUtils.generateToken({ personalEmail: personalEmail });
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
 
-    const updateQuery = 'UPDATE public.swp_reset_tokens SET token = $1 WHERE "userId" = $2';
-    db.query(updateQuery, [verificationToken, userId], (updateError, updateResult) => {
-      if (updateError) {
-        console.log('Error updating Resend link:', error);
-        return res.status(401).json({ message: 'Error updating Resend link'});
-      }
+        const userId = userResult.rows[0].user_id;
+        const verificationToken = jwtUtils.generateToken({ personalEmail });
 
-        sendResetTokenEmail(personalEmail, verificationToken);
+        const updateQuery = 'UPDATE public.swp_reset_tokens SET token = $1 WHERE user_id = $2';
+        await db.query(updateQuery, [verificationToken, userId]);
+
+        await sendResetTokenEmail(personalEmail, verificationToken);
+
         res.status(200).json({ message: 'Resend link resent. Check your email for the new token.' });
-    });
-  });
+    } catch (error) {
+        console.error('Error during resend reset token process:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 }
   
   //RESET PASSWORD
-function resetPassword(req, res) {
-  const { token, password } = req.body;
+async function resetPassword(req, res) {
+    const { token, password } = req.body;
 
-  const query = 'SELECT * FROM public.swp_reset_tokens WHERE token = $1';
-  db.query(query, [token], (checkTokenError, result) => {
-    if (checkTokenError) {
-      console.log('Error during reset password query:', checkTokenError);
-      return res.status(401).json({ message: 'Error during reset password query'});
-    }
+    try {
+        const query = 'SELECT * FROM public.swp_reset_tokens WHERE token = $1';
+        const result = await db.query(query, [token]);
 
-    if (result.rowCount === 0) {
-      return res.status(402).json({ message: 'Invalid token' });
-    }
-    const tokenData = result.rows[0];
-    const userId = tokenData.userid;
-
-    bcrypt.hash(password, 10, (hashError, hashedPassword) => {
-      if (hashError) {
-        console.log('Error during password hashing:', hashError);
-        return res.status(401).json({ message: 'Error during password hashing' });
-      }
-      
-      const updateQuery = 'UPDATE public.users SET Password = $1 WHERE user_id = $2';
-      db.query(updateQuery, [hashedPassword, userId], (updateError, updateResult) => {
-        if (updateError) {
-          console.log('Error updating password:', updateError);
-          return res.status(401).json({ message: 'Error updating password' });
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'Invalid token' });
         }
 
-        // Delete the reset token from the reset_tokens table
+        const tokenData = result.rows[0];
+        const userId = tokenData.user_id;
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const updateQuery = 'UPDATE public.users SET password = $1 WHERE user_id = $2';
+        await db.query(updateQuery, [hashedPassword, userId]);
+
         const deleteQuery = 'DELETE FROM public.swp_reset_tokens WHERE token = $1';
-        db.query(deleteQuery, [token], (deleteError, deleteResult) => {
-          if (deleteError) {
-            console.error('Error deleting reset token:', deleteError);
-            res.status(401).json({message : 'Error deleting reset token'});
-          }
-          res.status(200).json({ message: 'Password reset successful'});
-        });
-      });
-    });
-  });
+        await db.query(deleteQuery, [token]);
+
+        res.status(200).json({ message: 'Password reset successful' });
+    } catch (error) {
+        console.error('Error during password reset process:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 }
 
 function sendTokenEmail(personal_email, verificationToken) {
@@ -277,82 +242,78 @@ function sendTokenEmail(personal_email, verificationToken) {
     });
 }
 
-function getUserDetails(req, res) {
-  const token = req.headers.authorization.split(' ')[1];
-    const decodedToken = jwtUtils.verifyToken(token);
-    if (!decodedToken) {
-      console.log('Invalid Token');
-      return res.status(401).json({ message: 'Invalid token' });
-    }
-    const fetchUserQuery = 'SELECT * public.users WHERE "username" = $1';
-    const fetchCompanyQuery = `SELECT * FROM public.users WHERE "companyid"= $1`;
-    db.query(fetchUserQuery, [decodedToken.userName], (checkUserError, result) => {
-      if (checkUserError) {
-        console.log('Error executing query:', error);
-        return res.status(401).json({ message: 'Error executing user name query'});
-      }
-      if (result.rowCount === 0) {
-        // Log the error and response
-        return res.status(404).json({ message: 'User not found' });
-      }
-      const userDetail = result.rows[0];
-      db.query(fetchCompanyQuery, [userDetail.companyId], (fetchCompanyError, fetchCompanyResult) => {
-        if(fetchCompanyError){
-          console.log(fetchCompanyError);
-          return res.status(401).json({message : 'error fetching company details'});
+async function getUserDetails(req, res) {
+    const token = req.headers.authorization.split(' ')[1];
+
+    try {
+        const decodedToken = jwtUtils.verifyToken(token);
+        if (!decodedToken) {
+            console.log('Invalid Token');
+            return res.status(401).json({ message: 'Invalid token' });
         }
-        companyDetails = fetchCompanyResult.rows[0];
-        res.status(200).json({getUserDetails : userDetail, companyDetails : companyDetails});
-      })
-    });
+
+        const fetchUserQuery = 'SELECT * FROM public.users WHERE username = $1';
+        const userResult = await db.query(fetchUserQuery, [decodedToken.username]);
+
+        if (userResult.rowCount === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const userDetail = userResult.rows[0];
+        const fetchCompanyQuery = 'SELECT * FROM public.companies WHERE company_id = $1'; // Assuming companies table and correct column names
+        const companyResult = await db.query(fetchCompanyQuery, [userDetail.company_id]);
+
+        if (companyResult.rowCount === 0) {
+            return res.status(404).json({ message: 'Company not found' });
+        }
+
+        const companyDetails = companyResult.rows[0];
+        res.status(200).json({ userDetails: userDetail, companyDetails: companyDetails });
+    } catch (error) {
+        console.error('Error during getUserDetails process:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
 }
 
 
-function block(req, res) {
-  const { user_id } = req.params; // Ensure user_id is correctly extracted as a string
-  const { action } = req.body;
+async function block(req, res) {
+    const { user_id } = req.params; // Ensure user_id is correctly extracted as a string
+    const { action } = req.body;
 
-  if (action !== 'block' && action !== 'unblock') {
-    return res.status(400).json({ message: 'Invalid action. Use "block" or "unblock".' });
-  }
-
-  const blockValue = action === 'block' ? 1 : 0;
-
-  const checkQuery = 'SELECT block FROM public.users WHERE user_id = $1';
-
-  db.query(checkQuery, [user_id], (checkError, checkResult) => {
-    if (checkError) {
-      console.error('Error checking user block status:', checkError);
-      return res.status(500).json({ message: 'Error checking user block status' });
+    if (action !== 'block' && action !== 'unblock') {
+        return res.status(400).json({ message: 'Invalid action. Use "block" or "unblock".' });
     }
 
-    if (checkResult.rows.length === 0) {
-      return res.status(404).json({ message: 'User not found' });
+    const blockValue = action === 'block' ? 1 : 0;
+
+    try {
+        const checkQuery = 'SELECT block FROM public.users WHERE user_id = $1';
+        const checkResult = await db.query(checkQuery, [user_id]);
+
+        if (checkResult.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const currentBlockStatus = checkResult.rows[0].block;
+
+        if (currentBlockStatus === blockValue) {
+            const statusMessage = blockValue === 1 ? 'already blocked' : 'already unblocked';
+            return res.status(200).json({ message: `User is ${statusMessage}` });
+        }
+
+        const updateQuery = 'UPDATE public.users SET block = $1 WHERE user_id = $2';
+        const updateResult = await db.query(updateQuery, [blockValue, user_id]);
+
+        if (updateResult.rowCount === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+
+        const successMessage = `User ${action}ed successfully`;
+        res.status(200).json({ message: successMessage });
+    } catch (error) {
+        console.error(`Error during user ${action}ing:`, error);
+        res.status(500).json({ message: `Error ${action}ing user` });
     }
-
-    const currentBlockStatus = checkResult.rows[0].block;
-
-    if (currentBlockStatus === blockValue) {
-      const statusMessage = blockValue === 1 ? 'already blocked' : 'already unblocked';
-      return res.status(200).json({ message: `User is ${statusMessage}` });
-    }
-
-    const updateQuery = 'UPDATE public.users SET block = $1 WHERE user_id = $2';
-
-    db.query(updateQuery, [blockValue, user_id], (updateError, updateResult) => {
-      if (updateError) {
-        console.error(`Error during user ${action}ing:`, updateError);
-        return res.status(500).json({ message: `Error ${action}ing user` });
-      }
-
-      if (updateResult.rowCount === 0) {
-        return res.status(404).json({ message: 'User not found' });
-      }
-
-      const successMessage = `User ${action}ed successfully`;
-      res.status(200).json({ message: successMessage });
-    });
-  });
 }
 
 module.exports={
