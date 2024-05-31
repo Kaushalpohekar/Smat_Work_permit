@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const auth = require('./auth/authentication.js');
 const dashboard = require('./dashboard/dashboard.js');
+const standard = require('./standard/standard.js')
 
 
 const organizationAdmin = require('./dashboard/organization.js')
@@ -22,6 +23,13 @@ router.post('/tokens', auth.getAllTokens);
 
 // Dashboard
 router.post('/answer/:user_id',dashboard.postAns);
+
+
+//Standard
+router.get('/getCategories/:department_id/:form_type',standard.getCategories)
+router.get('/getQuestions/:form_id',standard.getQuestions)
+router.get('/getForms/:category_id',standard.getForms)
+
 
 
 
