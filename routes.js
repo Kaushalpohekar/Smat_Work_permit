@@ -17,6 +17,7 @@ router.post('/resend-forgot', auth.resendResetToken);
 router.get('/user', auth.getUserDetails);
 router.post('/login',auth.login);
 router.put('/users/:User_id/block', auth.block);
+router.post('/tokens', auth.getAllTokens);
 
 
 // Dashboard

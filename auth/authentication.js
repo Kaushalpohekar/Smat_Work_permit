@@ -40,7 +40,7 @@ async function login(req, res) {
             return res.status(401).json({ message: 'Invalid credentials' });
         }
 
-        const token = jwtUtils.generateToken({ Username: user.username });
+        const token = jwtUtils.generateToken({ user_id: user.user_id });
         res.status(200).json({ token });
 
     } catch (error) {
@@ -119,25 +119,26 @@ async function register(req, res) {
 }
   //FORGOT PASSWORD
 async function forgotPassword(req, res) {
-    const { personalEmail } = req.body;
+    const { usernameOrEmail } = req.body;
 
     try {
         const query = 'SELECT * FROM public.users WHERE personal_email = $1';
-        const result = await db.query(query, [personalEmail]);
+        const result = await db.query(query, [usernameOrEmail]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        const resetToken = jwtUtils.generateToken({ personalEmail });
+        const resetToken = jwtUtils.generateToken({ usernameOrEmail });
         const userId = result.rows[0].user_id; 
 
         const insertQuery = 'INSERT INTO public.reset_tokens (user_id, token) VALUES ($1, $2)';
         await db.query(insertQuery, [userId, resetToken]);
 
-        await sendResetTokenEmail(personalEmail, resetToken);
+        //await sendResetTokenEmail(usernameOrEmail, resetToken);
 
         res.status(200).json({ message: 'Reset token sent to your email' });
+        console.log('http://localhost:4200/l/reset?token=',resetToken);
     } catch (error) {
         console.error('Error during password reset process:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -176,7 +177,7 @@ async function resetPassword(req, res) {
     const { token, password } = req.body;
 
     try {
-        const query = 'SELECT * FROM public.swp_reset_tokens WHERE token = $1';
+        const query = 'SELECT * FROM public.reset_tokens WHERE token = $1';
         const result = await db.query(query, [token]);
 
         if (result.rowCount === 0) {
@@ -247,28 +248,29 @@ async function getUserDetails(req, res) {
 
     try {
         const decodedToken = jwtUtils.verifyToken(token);
+        console.log(decodedToken);
         if (!decodedToken) {
             console.log('Invalid Token');
             return res.status(401).json({ message: 'Invalid token' });
         }
 
-        const fetchUserQuery = 'SELECT * FROM public.users WHERE username = $1';
-        const userResult = await db.query(fetchUserQuery, [decodedToken.username]);
+        const fetchUserQuery = 'SELECT * FROM public.users WHERE user_id = $1';
+        const userResult = await db.query(fetchUserQuery, [decodedToken.user_id]);
 
         if (userResult.rowCount === 0) {
             return res.status(404).json({ message: 'User not found' });
         }
 
         const userDetail = userResult.rows[0];
-        const fetchCompanyQuery = 'SELECT * FROM public.companies WHERE company_id = $1'; // Assuming companies table and correct column names
-        const companyResult = await db.query(fetchCompanyQuery, [userDetail.company_id]);
+        const fetchRoleQuery = 'SELECT * FROM public.roles WHERE role_id = $1'; // Assuming companies table and correct column names
+        const roleResult = await db.query(fetchRoleQuery, [userDetail.role_id]);
 
-        if (companyResult.rowCount === 0) {
-            return res.status(404).json({ message: 'Company not found' });
+        if (roleResult.rowCount === 0) {
+            return res.status(404).json({ message: 'Role not found' });
         }
 
-        const companyDetails = companyResult.rows[0];
-        res.status(200).json({ userDetails: userDetail, companyDetails: companyDetails });
+        const roleDetail = roleResult.rows[0];
+        res.status(200).json({ userDetails: userDetail, roleDetails: roleDetail });
     } catch (error) {
         console.error('Error during getUserDetails process:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -316,6 +318,37 @@ async function block(req, res) {
     }
 }
 
+async function getAllTokens(req, res) {
+    const { token } = req.body;
+    const matchToken = 'SenseLive-Smart-Work-Permit';
+
+    console.log('Received token:', token);
+    
+    if (token === matchToken) {
+        try {
+            const query = 'SELECT * FROM public.reset_tokens';
+            const result = await db.query(query);
+
+            if (result.rowCount === 0) {
+                return res.status(404).json({ message: 'No Tokens Found!' });
+            }
+
+            const tokenData = result.rows;
+
+            console.log(tokenData);
+
+            return res.status(200).json({ tokenData });
+        } catch (error) {
+            console.error('Error during token retrieval process:', error);
+            return res.status(500).json({ message: 'Internal server error' });
+        }
+    } else {
+        return res.status(403).json({ message: 'Forbidden: Invalid token' });
+    }
+}
+
+
+
 module.exports={
   forgotPassword,
   resendResetToken,
@@ -324,4 +357,5 @@ module.exports={
   login,
   getUserDetails,
   block,
+  getAllTokens
 };
