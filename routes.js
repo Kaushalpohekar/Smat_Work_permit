@@ -7,8 +7,6 @@ const standard = require('./standard/standard.js')
 
 const organizationAdmin = require('./dashboard/organization.js')
 
-//const SA = require('/superadmin/SA.js');
-//const SA = require('/SuperAdmin/SA.js');
 
 //Authentication
 router.post('/register',auth.register);
@@ -26,11 +24,14 @@ router.post('/answer/:user_id',dashboard.postAns);
 
 
 //Standard
+
 router.get('/getCategories/:department_id/:form_type',standard.getCategories)
 router.get('/getQuestions/:form_id',standard.getQuestions)
 router.get('/getForms/:category_id',standard.getForms)
 
-
+router.post('/insertCategories',standard.insertCategories);
+router.post('/createQuestions',standard.createQuestions);
+router.post('/createForms',standard.createForms);
 
 
 //SuperAdmin
@@ -44,7 +45,7 @@ router.get('/getForms/:category_id',standard.getForms)
 //Organization Admin
 
 //categoryies
-router.post('/createCategory',organizationAdmin.createCategory);
+router.post('/createCategory/:department_id',organizationAdmin.createCategory);
 router.put('/updateCategory/:category_id',organizationAdmin.updateCateogry);
 router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
 router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
@@ -52,30 +53,16 @@ router.get('/getAllCategory',organizationAdmin.getAllCategories);
 
 
 //forms
-
 router.post('/createForms/:category_id',organizationAdmin.createForm);
 router.get('/FormById/:form_id',organizationAdmin.getFormById);
 router.get('/getAllForms',organizationAdmin.getAllForms);
 router.put('/updateForm/:form_id',organizationAdmin.updateform);
 router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
 
-
-
 //questions
-
 router.post('/questionCreate/:form_id',organizationAdmin.createQuestion);
 router.put('/updatequestion/:question_id',organizationAdmin.updateQuestion);
 router.delete('/deletequestion/:question_id',organizationAdmin.deleteQuestion);
 router.get('/getquestionbyid/:form_id',organizationAdmin.getQuestionByFormId);
-
-
-
-
-
-
-
-
-
-
 
 module.exports=router;

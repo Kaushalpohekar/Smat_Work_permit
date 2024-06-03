@@ -3,23 +3,65 @@ const { v4: uuidv4 } = require('uuid');
 
 
 
-async function createCategory(req,res){
-const {title,subtitle,icon}=req.body;
-const category_id = uuidv4();
+// async function createCategory(req,res){
+// const {title,subtitle,icon}=req.body;
+// const category_id = uuidv4();
 
-const CreateCategoryQuery = `INSERT INTO public.category (title,subtitle,icon,category_id) VALUES ($1,$2,$3,$4) RETURNING category_id`
+// const CreateCategoryQuery = `INSERT INTO public.category (title,subtitle,icon,category_id) VALUES ($1,$2,$3,$4) RETURNING category_id`
 
-db.query(CreateCategoryQuery,[title,subtitle,icon,category_id],(error,result)=>{
-    if(error){
-        console.error('Error creating category:',error);
-        res.status(500).json({message:'Failed to create category'});
+// db.query(CreateCategoryQuery,[title,subtitle,icon,category_id],(error,result)=>{
+//     if(error){
+//         console.error('Error creating category:',error);
+//         res.status(500).json({message:'Failed to create category'});
+//     }
+
+//     else{
+//         res.status(201).json({categoryId:result.rows[0].category_id,message:'Category created successfully'});
+//     }
+// })
+// }
+
+async function createCategory(req, res) {
+    const { name, subtitle, icon, form_type } = req.body;
+    const department_id = req.params.department_id;
+    
+    if (!name || !form_type || !department_id) {
+        return res.status(400).json({ message: 'Name, form_type, and department_id are required' });
     }
 
-    else{
-        res.status(201).json({categoryId:result.rows[0].category_id,message:'Category created successfully'});
+    const category_id = uuidv4();
+
+    const checkCategoryQuery = `
+      SELECT category_id 
+      FROM public.categories 
+      WHERE category_id = $1
+    `;
+
+    const insertCategoryQuery = `
+      INSERT INTO public.categories (category_id, name, subtitle, icon, form_type, department_id)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING *
+    `;
+
+    try {
+        
+        const checkResult = await db.query(checkCategoryQuery, [category_id]);
+        if (checkResult.rows.length > 0) {
+            return res.status(409).json({ message: 'Category ID already exists' });
+        }
+
+         
+        const values = [category_id, name, subtitle, icon, form_type, department_id];
+        const insertResult = await db.query(insertCategoryQuery, values);
+
+        return res.status(201).json({ message: 'Category inserted successfully', category: insertResult.rows[0] });
+    } catch (error) {
+        console.error(error);
+        return res.status(500).json({ message: 'Error while inserting category', error });
     }
-})
 }
+
+
 
 async function updateCateogry(req,res){
     const category_id =req.params.category_id;
