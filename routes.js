@@ -44,7 +44,7 @@ router.get('/getForms/:category_id',standard.getForms)
 //Organization Admin
 
 //categoryies
-router.post('/createCategory',organizationAdmin.createCategory);
+router.post('/createCategory/:department_id',organizationAdmin.createCategory);
 router.put('/updateCategory/:category_id',organizationAdmin.updateCateogry);
 router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
 router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
