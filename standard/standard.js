@@ -84,11 +84,168 @@ async function getForms(req, res) {
     }
 }
 
+//Insert api for these function
+
+async function insertCategories(req, res) {
+    const { name, subtitle, icon, form_type, department_name } = req.body;
+
+    const fetchDepartmentId = async (departmentName) => {
+        const query = `SELECT department_id FROM public.departments WHERE name = $1`;
+        return new Promise((resolve, reject) => {
+            db.query(query, [departmentName], (error, result) => {
+                if (error) {
+                    console.error('Error fetching department ID', error);
+                    reject(error);
+                } else if (result.rows.length === 0) {
+                    reject(new Error('Department not found'));
+                } else {
+                    resolve(result.rows[0].department_id);
+                }
+            });
+        });
+    };
+
+    try {
+        const department_id = await fetchDepartmentId(department_name);
+
+        const query = `INSERT INTO public.categories (name, subtitle, icon, form_type, department_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+
+        db.query(query, [name, subtitle, icon, form_type, department_id], (error, result) => {
+            if (error) {
+                console.error('Error inserting data', error);
+                res.status(500).json({ message: "Error inserting data" });
+            } else {
+                res.status(201).json(result.rows[0]);
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching department ID', error);
+        res.status(500).json({ message: "Error fetching department ID" });
+    }
+}
+
+
+async function createQuestions(req, res) {
+    const { form_name, question_text, question_type } = req.body;
+
+    const fetchFormId = async (formName) => {
+        const query = `SELECT form_id FROM public.forms WHERE form_name = $1`;
+        return new Promise((resolve, reject) => {
+            db.query(query, [formName], (error, result) => {
+                if (error) {
+                    console.error('Error fetching form ID', error);
+                    reject(error);
+                } else if (result.rows.length === 0) {
+                    reject(new Error('Form not found'));
+                } else {
+                    resolve(result.rows[0].form_id);
+                }
+            });
+        });
+    };
+
+    try {
+        const form_id = await fetchFormId(form_name);
+
+        const createQuery = `INSERT INTO public.questions (form_id, question_text, question_type) VALUES ($1, $2, $3) RETURNING *`;
+
+        db.query(createQuery, [form_id, question_text, question_type], (error, result) => {
+            if (error) {
+                console.error('Error inserting data', error);
+                res.status(500).json({ message: 'Error inserting data' });
+            } else {
+                res.status(201).json(result.rows[0]);
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching form ID', error);
+        res.status(500).json({ message: 'Error fetching form ID' });
+    }
+}
+
+async function createForms(req, res) {
+    const { category_name, plant_name, form_name, form_description, created_by_username } = req.body;
+
+    const fetchCategoryId = async (categoryName) => {
+        const query = `SELECT category_id FROM public.categories WHERE name = $1`;
+        return new Promise((resolve, reject) => {
+            db.query(query, [categoryName], (error, result) => {
+                if (error) {
+                    console.error('Error fetching category ID', error);
+                    reject(error);
+                } else if (result.rows.length === 0) {
+                    reject(new Error('Category not found'));
+                } else {
+                    resolve(result.rows[0].category_id);
+                }
+            });
+        });
+    };
+
+    const fetchPlantId = async (plantName) => {
+        const query = `SELECT plant_id FROM public.plants WHERE name = $1`;
+        return new Promise((resolve, reject) => {
+            db.query(query, [plantName], (error, result) => {
+                if (error) {
+                    console.error('Error fetching plant ID', error);
+                    reject(error);
+                } else if (result.rows.length === 0) {
+                    reject(new Error('Plant not found'));
+                } else {
+                    resolve(result.rows[0].plant_id);
+                }
+            });
+        });
+    };
+
+    const fetchUserId = async (username) => {
+        const query = `SELECT user_id FROM public.users WHERE username = $1`;
+        return new Promise((resolve, reject) => {
+            db.query(query, [username], (error, result) => {
+                if (error) {
+                    console.error('Error fetching user ID', error);
+                    reject(error);
+                } else if (result.rows.length === 0) {
+                    reject(new Error('User not found'));
+                } else {
+                    resolve(result.rows[0].user_id);
+                }
+            });
+        });
+    };
+
+    try {
+        const category_id = await fetchCategoryId(category_name);
+        const plant_id = await fetchPlantId(plant_name);
+        const created_by = await fetchUserId(created_by_username);
+
+        const query = `INSERT INTO public.forms (category_id, plant_id, form_name, form_description, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+
+        db.query(query, [category_id, plant_id, form_name, form_description, created_by], (error, result) => {
+            if (error) {
+                console.error('Error inserting data', error);
+                res.status(500).json({ message: "Error entering data" });
+            } else {
+                res.status(201).json(result.rows[0]);
+            }
+        });
+    } catch (error) {
+        console.error('Error fetching IDs', error);
+        res.status(500).json({ message: "Error fetching IDs" });
+    }
+}
 
 
 module.exports={
     getCategories,
     getQuestions,
-    getForms
+    getForms,
+
+    //insert apis for the following code 
+    insertCategories,
+    createQuestions,
+    createForms,
+
+
 
 }

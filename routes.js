@@ -26,11 +26,14 @@ router.post('/answer/:user_id',dashboard.postAns);
 
 
 //Standard
+
 router.get('/getCategories/:department_id/:form_type',standard.getCategories)
 router.get('/getQuestions/:form_id',standard.getQuestions)
 router.get('/getForms/:category_id',standard.getForms)
 
-
+router.post('/insertCategories',standard.insertCategories);
+router.post('/createQuestions',standard.createQuestions);
+router.post('/createForms',standard.createForms);
 
 
 //SuperAdmin
