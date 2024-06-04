@@ -149,6 +149,84 @@ async function getQuestions(req, res) {
 }
 
 
+async function getDepartments (req, res) {
+    const department_id = req.params.department_id;
+    if (!department_id) {
+        return res.status(400).json({ error: 'Department_id is required' });
+    }
+    try {
+        const query = 
+            `SELECT d.*, u.username, u.role_id, c.name
+            FROM departments d
+            LEFT JOIN users u ON d.department_id = u.department_id
+            LEFT JOIN categories c ON d.department_id = c.department_id
+            WHERE d.department_id=$1`;
+        
+        
+        const result = await db.query(query,[department_id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No departments available for the specified request' });
+        }
+
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+async function getPlants (req, res) {
+    const plant_id = req.params.plant_id;
+    if (!plant_id) {
+        return res.status(400).json({ error: 'Plant id is required' });
+    }
+    try {
+        const query = 
+            `SELECT p.*,d.name,d.department_id,c.name,c.mobile_number
+            FROM plants p
+            LEFT JOIN departments d ON p.plant_id = d.plant_id
+            LEFT JOIN contractors c ON p.plant_id = c.plant_id
+            WHERE p.plant_id=$1`;
+        
+        
+        const result = await db.query(query,[plant_id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No plants available for the specified request' });
+        }
+
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+async function getOrganizations (req, res) {
+    const organization_id = req.params.organization_id;
+    if (!organization_id) {
+        return res.status(400).json({ error: 'Organization id is required' });
+    }
+    try {
+        const query = 
+            `SELECT o.*,p.name,p.plant_id,p.location
+            FROM organizations o
+            LEFT JOIN plants p ON p.organization_id = o.organization_id
+            WHERE o.organization_id=$1`;
+        
+        
+        const result = await db.query(query,[organization_id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No organization available for the specified request' });
+        }
+
+        res.status(200).json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+};
+
+
 async function insertCategories(req, res) {
     const { name, subtitle, icon, form_type, department_name } = req.body;
 
@@ -361,6 +439,10 @@ module.exports = {
     getCategories,
     getQuestions,
     getForms,
+    getDepartments,
+    getPlants,
+    getOrganizations,
+    
     insertCategories,
     createQuestions,
     createForms

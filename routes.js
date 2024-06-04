@@ -28,6 +28,9 @@ router.post('/answer/:user_id',dashboard.postAns);
 router.get('/getCategories/:department_id/:form_type',standard.getCategories)
 router.get('/getQuestions/:form_id',standard.getQuestions)
 router.get('/getForms/:category_id',standard.getForms)
+router.get('/getDepartments/:department_id',standard.getDepartments)
+router.get('/getPlants/:plant_id',standard.getPlants)
+router.get('/getOrganizations/:organization_id',standard.getOrganizations)
 
 router.post('/insertCategories',standard.insertCategories);
 router.post('/createQuestions',standard.createQuestions);
