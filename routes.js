@@ -51,7 +51,7 @@ router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
 
 //categoryies
 router.post('/createCategory/:department_id',organizationAdmin.createCategory);
-router.put('/updateCategory/:category_id',organizationAdmin.updateCateogry);
+router.put('/updateCategory/:category_id',organizationAdmin.updateCategory);
 router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
 router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
 router.get('/getAllCategory',organizationAdmin.getAllCategories);
