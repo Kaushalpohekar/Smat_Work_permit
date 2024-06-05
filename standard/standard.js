@@ -433,6 +433,27 @@ async function createQuestions(req, res) {
 }
 
 
+async function getAuthorizersByDepartment(req, res) {
+    const department_id = req.params.department_id;
+    const getQuery = `
+        SELECT u.username, u.first_name, u.last_name
+        FROM public.users u
+        JOIN public.submissions s ON u.user_id = s.authorizer
+        WHERE u.department_id = $1
+    `;
+
+    try {
+        const result = await db.query(getQuery, [department_id]);
+        if (result.rows.length > 0) {
+            res.status(200).json(result.rows);
+        } else {
+            res.status(404).json({ message: 'No authorizers found for this department' });
+        }
+    } catch (error) {
+        console.error('Error fetching authorizers', error);
+        res.status(500).json({ message: 'Error fetching authorizers' });
+    }
+}
 
 
 module.exports = {
@@ -445,5 +466,7 @@ module.exports = {
     
     insertCategories,
     createQuestions,
-    createForms
+    createForms,
+    getAuthorizersByDepartment,
+
 }

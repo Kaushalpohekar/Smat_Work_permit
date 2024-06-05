@@ -65,10 +65,13 @@ async function createCategory(req, res) {
 
 async function updateCateogry(req,res){
     const category_id =req.params.category_id;
-    const {title, subtitle, icon}=req.body;
-    const UpdateCategoryQuery=`UPDATE public.category SET title = $1, subtitle = $2 , icon = $3 WHERE category_id =$4`;
+    const {name, subtitle, icon}=req.body;
+    const UpdateCategoryQuery=`UPDATE public.categories 
+    SET name = $1, subtitle = $2, icon = $3 
+    WHERE category_id = $4
+    RETURNING *`;
 
-    db.query(UpdateCategoryQuery,[title,subtitle,icon,category_id],(error,result)=>{
+    db.query(UpdateCategoryQuery,[name,subtitle,icon,category_id],(error,result)=>{
         if(error){
             console.error('Error updating category:',error);
             res.status(500).json({message:'Failed to update category'});
@@ -84,7 +87,7 @@ async function updateCateogry(req,res){
 
 async function deleteCategory(req,res){
     const category_id = req.params.category_id;
-    const deleteCategoryQuery = `DELETE FROM public.category WHERE category_id = $1`;
+    const deleteCategoryQuery = `DELETE FROM public.categories WHERE category_id = $1`;
     db.query(deleteCategoryQuery,[category_id],(error,result)=>{
         if(error){
             console.error('Error deleteing category:',error);
@@ -104,7 +107,7 @@ async function deleteCategory(req,res){
 async function getCategoryById(req,res){
     const category_id=req.params.category_id;
 
-    const getCategoryQuery=`SELECT * FROM public.category WHERE category_id = $1`;
+    const getCategoryQuery=`SELECT * FROM public.categories WHERE category_id = $1`;
     db.query(getCategoryQuery,[category_id],(error,result)=>{
         if(error){
             console.error('Error fetching category:',error);
@@ -121,7 +124,7 @@ async function getCategoryById(req,res){
 
 
 async function getAllCategories(req,res){
-const getAllCategoriesQuery=`SELECT * FROM public.category`;
+const getAllCategoriesQuery=`SELECT * FROM public.categories`;
 db.query(getAllCategoriesQuery,[],(error,result)=>{
     if(error){
         console.error('Error fetching categories:',error);
@@ -139,48 +142,103 @@ db.query(getAllCategoriesQuery,[],(error,result)=>{
 
 //forms queries
 
-async function createForm(req,res){
-    const { category_id }=req.params;
-    const {form_name,organization, created_by,form_type,start_date,start_time,end_date,end_time,name,worker}=req.body;
+// async function createForm(req,res){
+//     const { category_id }=req.params;
+//     const {form_name,organization, created_by,form_type,start_date,start_time,end_date,end_time,name,worker}=req.body;
 
-    const categoryQuery=`SELECT title, subtitle, icon FROM public.category WHERE category_id = $1`;
+//     const categoryQuery=`SELECT title, subtitle, icon FROM public.categories WHERE category_id = $1`;
 
-    const categoryResult = await db.query(categoryQuery,[category_id]);
+//     const categoryResult = await db.query(categoryQuery,[category_id]);
 
-    if(categoryResult.rows.length === 0){
-        return res.status(404).json({message:'category not found'});
+//     if(categoryResult.rows.length === 0){
+//         return res.status(404).json({message:'category not found'});
+//     }
+
+//     const {title, subtitle, icon}=categoryResult.rows[0];
+
+//     // Generate formUID
+//     const formUIDQuery = `SELECT COUNT(*) FROM public.forms WHERE category_id = $1`;
+//     const formCountResult = await db.query(formUIDQuery, [category_id]);
+//     const formCount = formCountResult.rows[0].count + 1;
+//     const formUID = `${title.slice(0, 3).toUpperCase()}${formCount.toString().padStart(7, '0')}`;
+
+//     const form_id = uuidv4();
+
+   
+//     const insertFormQuery = `
+//     INSERT INTO public.forms (form_name,organization, created_by, form_type, form_uid, title, subtitle, icon, start_date, start_time, end_date, end_time, "name", worker, category_id) 
+//     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+//     RETURNING form_id`;
+
+//     db.query(insertFormQuery,[form_name,organization, created_by, form_type, formUID, title, subtitle, icon, start_date, start_time, end_date, end_time, name, worker, category_id],(error,result)=>{
+//         if(error){
+//             console.error('Error creating form:',error);
+//             res.status(500).json({message:'Failed to create form'});
+//         }
+
+//         else{
+//             res.status(201).json({formId:result.rows[0].form_id,message:'Form created successfully'});
+//         }
+//     })
+
+// }
+
+
+
+async function createForm(req, res) {
+    const { category_id } = req.params;
+    const { form_name, form_description, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker, plant_id } = req.body;
+
+    try {
+        // Query to get the category details
+        const categoryQuery = `
+            SELECT title, subtitle, icon 
+            FROM public.categories 
+            WHERE category_id = $1
+        `;
+        const categoryResult = await db.query(categoryQuery, [category_id]);
+
+        if (categoryResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+
+        const { title, subtitle, icon } = categoryResult.rows[0];
+
+        // Generate formUID
+        const formUIDQuery = `
+            SELECT COUNT(*) 
+            FROM public.forms 
+            WHERE category_id = $1
+        `;
+        const formCountResult = await db.query(formUIDQuery, [category_id]);
+        const formCount = parseInt(formCountResult.rows[0].count, 10) + 1;
+        const formUID = `${title.slice(0, 3).toUpperCase()}${formCount.toString().padStart(7, '0')}`;
+
+        // Generate form_id
+        const form_id = uuidv4();
+
+        // Insert the new form into the database
+        const insertFormQuery = `
+            INSERT INTO public.forms (
+                form_id, form_name, form_description, organization, created_by, form_type, 
+                form_uid, title, subtitle, icon, start_date, start_time, 
+                end_date, end_time, name, worker, category_id, plant_id
+            ) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+            RETURNING form_id
+        `;
+
+        const insertFormResult = await db.query(insertFormQuery, [
+            form_id, form_name, form_description, organization, created_by, form_type, 
+            formUID, title, subtitle, icon, start_date, start_time, 
+            end_date, end_time, name, worker, category_id, plant_id
+        ]);
+
+        res.status(201).json({ formId: insertFormResult.rows[0].form_id, message: 'Form created successfully' });
+    } catch (error) {
+        console.error('Error creating form:', error);
+        res.status(500).json({ message: 'Failed to create form' });
     }
-
-    const {title, subtitle, icon}=categoryResult.rows[0];
-
-    // Generate formUID
-    const formUIDQuery = `SELECT COUNT(*) FROM public.forms WHERE category_id = $1`;
-    const formCountResult = await db.query(formUIDQuery, [category_id]);
-    const formCount = formCountResult.rows[0].count + 1;
-    const formUID = `${title.slice(0, 3).toUpperCase()}${formCount.toString().padStart(7, '0')}`;
-
-    const formId = uuidv4();
-
-    // const insertFormQuery = `
-    //          INSERT INTO public.forms (form_name, organization, created_by, form_type, form_uid, title, subtitle, icon, start_date, start_time, end_date, end_time, name, worker, category_id) 
-    //          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-    //          RETURNING form_id`;
-    const insertFormQuery = `
-    INSERT INTO public.forms (form_name,organization, created_by, form_type, form_uid, title, subtitle, icon, start_date, start_time, end_date, end_time, "name", worker, category_id) 
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-    RETURNING form_id`;
-
-    db.query(insertFormQuery,[form_name,organization, created_by, form_type, formUID, title, subtitle, icon, start_date, start_time, end_date, end_time, name, worker, category_id],(error,result)=>{
-        if(error){
-            console.error('Error creating form:',error);
-            res.status(500).json({message:'Failed to create form'});
-        }
-
-        else{
-            res.status(201).json({formId:result.rows[0].form_id,message:'Form created successfully'});
-        }
-    })
-
 }
 
 async function getFormById(req,res){
@@ -422,3 +480,4 @@ module.exports={
     deleteQuestion,
     getQuestionByFormId,
 }
+
