@@ -1,4 +1,6 @@
 const db = require('../db');
+const { v4: uuidv4 } = require('uuid');
+
 const { validationResult } = require('express-validator');
 
 function sanitizeInput(input) {
@@ -574,7 +576,100 @@ async function getSubmissionDetails(req, res) {
 }
 
 
+async function insertSubmissionDetails (req, res) {
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
 
+        // Extract data from the request body
+        const {
+            formId,
+            authorizer,
+            requestedBy,
+            startDate,
+            startTime,
+            endDate,
+            endTime,
+            location,
+            remarks,
+            workers,
+            contractors,
+            questions,
+            status
+        } = req.body;
+
+        // Generate a new UUID for submission_id
+        const submissionId = uuidv4();
+
+        // Insert submission details into the submissions table
+        const insertSubmissionQuery = `
+            INSERT INTO public.submissions (
+                submission_id, form_id, authorizer, requested_by, start_date, start_time, end_date, end_time, location, remark, status
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+        `;
+        await client.query(insertSubmissionQuery, [
+            submissionId, formId, authorizer, requestedBy, startDate, startTime, endDate, endTime, location, remarks, status
+        ]);
+
+        // Insert workers into the workers table if they don't exist
+        for (const worker of workers) {
+            const workerId = worker.id || uuidv4(); // Generate a UUID if not provided
+            const insertWorkerQuery = `
+                INSERT INTO public.workers (worker_id, name, mobile_number)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (worker_id) DO NOTHING
+            `;
+            await client.query(insertWorkerQuery, [workerId, worker.name, worker.mobileNumber]);
+
+            // Insert worker submission details into the submission_workers table
+            const insertSubmissionWorkerQuery = `
+                INSERT INTO public.submission_workers (submission_id, worker_id)
+                VALUES ($1, $2)
+            `;
+            await client.query(insertSubmissionWorkerQuery, [submissionId, workerId]);
+        }
+
+        // Insert contractors into the contractors table if they don't exist
+        for (const contractor of contractors) {
+            const contractorId = contractor.id || uuidv4(); // Generate a UUID if not provided
+            const insertContractorQuery = `
+                INSERT INTO public.contractors (contractor_id, name, mobile_number)
+                VALUES ($1, $2, $3)
+                ON CONFLICT (contractor_id) DO NOTHING
+            `;
+            await client.query(insertContractorQuery, [contractorId, contractor.name, contractor.mobileNumber]);
+
+            // Insert contractor submission details into the submission_contractors table
+            const insertSubmissionContractorQuery = `
+                INSERT INTO public.submission_contractors (submission_id, contractor_id)
+                VALUES ($1, $2)
+            `;
+            await client.query(insertSubmissionContractorQuery, [submissionId, contractorId]);
+        }
+
+        // Insert answers into the answers table
+        for (const question of questions) {
+            const insertAnswerQuery = `
+                INSERT INTO public.answers (submission_id, question_id, answer_text)
+                VALUES ($1, $2, $3)
+            `;
+            await client.query(insertAnswerQuery, [submissionId, question.id, question.answer]);
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Submission details inserted successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error inserting submission details:', error);
+        res.status(500).json({ error: 'Error inserting submission details' });
+    } finally {
+        client.release();
+    }
+};
+
+module.exports = {
+    insertSubmissionDetails
+};
 
 
 module.exports = {
@@ -590,5 +685,7 @@ module.exports = {
     createForms,
     getAuthorizersByDepartment,
     getSubmissionDetails,
+
+    insertSubmissionDetails,
 
 }

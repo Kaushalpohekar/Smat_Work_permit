@@ -38,6 +38,7 @@ router.post('/createForms',standard.createForms);
 
 router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
 router.get('/getDetails/:submissionId',standard.getSubmissionDetails);
+router.post('/insertDetails', standard.insertSubmissionDetails);
 
 
 //SuperAdmin
