@@ -435,15 +435,21 @@ async function createQuestions(req, res) {
 
 async function getAuthorizersByDepartment(req, res) {
     const department_id = req.params.department_id;
+    const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
+
+    console.log('Department ID:', department_id);
+    console.log('Authorizer Role ID:', authorizerRoleId);
+
     const getQuery = `
-        SELECT u.username, u.first_name, u.last_name
-        FROM public.users u
-        JOIN public.submissions s ON u.user_id = s.authorizer
-        WHERE u.department_id = $1
+        SELECT first_name, last_name
+        FROM public.users
+        WHERE department_id = $1 AND role_id = $2
     `;
 
     try {
-        const result = await db.query(getQuery, [department_id]);
+        const result = await db.query(getQuery, [department_id, authorizerRoleId]);
+        console.log('Query Result:', result.rows);
+
         if (result.rows.length > 0) {
             res.status(200).json(result.rows);
         } else {
@@ -454,6 +460,121 @@ async function getAuthorizersByDepartment(req, res) {
         res.status(500).json({ message: 'Error fetching authorizers' });
     }
 }
+
+
+
+async function getSubmissionDetails(req, res) {
+    try {
+        // Extract submissionId from request parameters
+        const submissionId = req.params.submission_id;
+
+        // Fetch submission details from the database based on submissionId
+        const submissionQuery = `
+            SELECT
+                s.form_id,
+                s.authorizer,
+                s.start_date,
+                s.start_time,
+                s.end_date,
+                s.end_time,
+                s.location,
+                s.remark
+            FROM
+                public.submissions s
+            WHERE
+                s.submission_id = $1
+        `;
+        const submissionResult = await db.query(submissionQuery, [submissionId]);
+        const submission = submissionResult.rows[0];
+
+        if (!submission) {
+            return res.status(404).json({ error: 'Submission not found' });
+        }
+
+        // Fetch workers for the submission
+        const workersQuery = `
+            SELECT
+                w.worker_id,
+                w.name,
+                w.mobile_number
+            FROM
+                public.submission_workers sw
+            JOIN
+                public.workers w ON sw.worker_id = w.worker_id
+            WHERE
+                sw.submission_id = $1
+        `;
+        const workersResult = await db.query(workersQuery, [submissionId]);
+        const workers = workersResult.rows;
+
+        // Fetch contractors for the submission
+        const contractorsQuery = `
+            SELECT
+                c.contractor_id,
+                c.name,
+                c.mobile_number
+            FROM
+                public.submission_contractors sc
+            JOIN
+                public.contractors c ON sc.contractor_id = c.contractor_id
+            WHERE
+                sc.submission_id = $1
+        `;
+        const contractorsResult = await db.query(contractorsQuery, [submissionId]);
+        const contractors = contractorsResult.rows;
+
+        // Fetch answers to questions for the submission
+        const questionsQuery = `
+            SELECT
+                q.question_id,
+                a.answer_text
+            FROM
+                public.answers a
+            JOIN
+                public.questions q ON a.question_id = q.question_id
+            WHERE
+                a.submission_id = $1
+        `;
+        const questionsResult = await db.query(questionsQuery, [submissionId]);
+        const questions = questionsResult.rows;
+
+        // Construct the submissionDetails object without nesting
+        const submissionDetails = {
+            formId: submission.form_id,
+            categoryID: submission.category_id,
+            authorizer: submission.authorizer,
+            startDate: submission.start_date,
+            startTime: submission.start_time,
+            endDate: submission.end_date,
+            endTime: submission.end_time,
+            location: submission.location,
+            remarks: submission.remark,
+            workers: workers.map(worker => ({
+                id: worker.worker_id,
+                name: worker.name,
+                mobileNumber: worker.mobile_number
+            })),
+            contractors: contractors.map(contractor => ({
+                id: contractor.contractor_id,
+                name: contractor.name,
+                mobileNumber: contractor.mobile_number
+            })),
+            questions: questions.map(question => ({
+                id: question.question_id,
+                answer: question.answer_text
+            }))
+        };
+
+        // Send the submissionDetails as a JSON response
+        res.json(submissionDetails);
+    } catch (error) {
+        console.error('Error fetching submission details:', error);
+        res.status(500).json({ error: 'Error fetching submission details' });
+    }
+}
+
+
+
 
 
 module.exports = {
@@ -468,5 +589,6 @@ module.exports = {
     createQuestions,
     createForms,
     getAuthorizersByDepartment,
+    getSubmissionDetails,
 
 }

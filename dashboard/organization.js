@@ -67,16 +67,16 @@ async function createCategory(req, res) {
 
 async function updateCategory(req, res) {
     const category_id = req.params.category_id;
-    const { name, subtitle, icon } = req.body;
+    const { name, subtitle, icon , form_type} = req.body;
     const updateCategoryQuery = `
         UPDATE public.categories 
-        SET name = $1, subtitle = $2, icon = $3 
-        WHERE category_id = $4
+        SET name = $1, subtitle = $2, icon = $3, form_type = $4
+        WHERE category_id = $5
         RETURNING *
     `;
 
     try {
-        const result = await db.query(updateCategoryQuery, [name, subtitle, icon, category_id]);
+        const result = await db.query(updateCategoryQuery, [name, subtitle, icon, form_type, category_id]);
         if (result.rowCount === 0) {
             return res.status(404).json({ message: 'Category not found' });
         }
@@ -105,6 +105,7 @@ async function deleteCategory(req, res) {
         res.status(500).json({ message: 'Failed to delete category' });
     }
 }
+
 
 
 async function getCategoryById(req, res) {
@@ -137,51 +138,6 @@ async function getAllCategories(req, res) {
         res.status(500).json({ message: 'Failed to fetch categories' });
     }
 }
-
-
-
-//forms queries
-
-// async function createForm(req,res){
-//     const { category_id }=req.params;
-//     const {form_name,organization, created_by,form_type,start_date,start_time,end_date,end_time,name,worker}=req.body;
-
-//     const categoryQuery=`SELECT title, subtitle, icon FROM public.categories WHERE category_id = $1`;
-
-//     const categoryResult = await db.query(categoryQuery,[category_id]);
-
-//     if(categoryResult.rows.length === 0){
-//         return res.status(404).json({message:'category not found'});
-//     }
-
-//     const {title, subtitle, icon}=categoryResult.rows[0];
-
-//     // Generate formUID
-//     const formUIDQuery = `SELECT COUNT(*) FROM public.forms WHERE category_id = $1`;
-//     const formCountResult = await db.query(formUIDQuery, [category_id]);
-//     const formCount = formCountResult.rows[0].count + 1;
-//     const formUID = `${title.slice(0, 3).toUpperCase()}${formCount.toString().padStart(7, '0')}`;
-
-//     const form_id = uuidv4();
-
-   
-//     const insertFormQuery = `
-//     INSERT INTO public.forms (form_name,organization, created_by, form_type, form_uid, title, subtitle, icon, start_date, start_time, end_date, end_time, "name", worker, category_id) 
-//     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-//     RETURNING form_id`;
-
-//     db.query(insertFormQuery,[form_name,organization, created_by, form_type, formUID, title, subtitle, icon, start_date, start_time, end_date, end_time, name, worker, category_id],(error,result)=>{
-//         if(error){
-//             console.error('Error creating form:',error);
-//             res.status(500).json({message:'Failed to create form'});
-//         }
-
-//         else{
-//             res.status(201).json({formId:result.rows[0].form_id,message:'Form created successfully'});
-//         }
-//     })
-
-// }
 
 
 

@@ -37,6 +37,7 @@ router.post('/createQuestions',standard.createQuestions);
 router.post('/createForms',standard.createForms);
 
 router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
+router.get('/getDetails/:submissionId',standard.getSubmissionDetails);
 
 
 //SuperAdmin
@@ -61,7 +62,7 @@ router.get('/getAllCategory',organizationAdmin.getAllCategories);
 router.post('/createForms/:category_id',organizationAdmin.createForm);
 router.get('/FormById/:form_id',organizationAdmin.getFormById);
 router.get('/getAllForms',organizationAdmin.getAllForms);
-router.put('/updateForm/:form_id',organizationAdmin.updateform);
+//router.put('/updateForm/:form_id',organizationAdmin.updateform);
 router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
 
 //questions
