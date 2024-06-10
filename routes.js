@@ -37,7 +37,7 @@ router.post('/createQuestions',standard.createQuestions);
 router.post('/createForms',standard.createForms);
 
 router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
-router.get('/getDetails/:submissionId',standard.getSubmissionDetails);
+router.get('/getDetails/:submission_id',standard.getSubmissionDetails);
 router.post('/insertDetails', standard.insertSubmissionDetails);
 
 

@@ -576,6 +576,9 @@ async function getSubmissionDetails(req, res) {
 }
 
 
+
+
+
 async function insertSubmissionDetails (req, res) {
     const client = await db.connect();
     try {
