@@ -17,7 +17,9 @@ router.get('/user', auth.getUserDetails);
 router.post('/login',auth.login);
 router.put('/users/:User_id/block', auth.block);
 router.post('/tokens', auth.getAllTokens);
-
+router.put('/updateUserdetails',auth.updateUser);
+router.put('/updatemail',auth.updateEmail);
+router.put('/profilePicture/:user_id/profile-picture', upload.single('picture'),auth.updateProfilePicture);
 
 // Dashboard
 router.post('/answer/:user_id',dashboard.postAns);
