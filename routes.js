@@ -17,7 +17,9 @@ router.get('/user', auth.getUserDetails);
 router.post('/login',auth.login);
 router.put('/users/:User_id/block', auth.block);
 router.post('/tokens', auth.getAllTokens);
-
+router.put('/updateUserdetails',auth.updateUser);
+router.put('/updatemail',auth.updateEmail);
+router.put('/profilePicture/:user_id/profile-picture', upload.single('picture'),auth.updateProfilePicture);
 
 // Dashboard
 router.post('/answer/:user_id',dashboard.postAns);
@@ -36,6 +38,10 @@ router.post('/insertCategories',standard.insertCategories);
 router.post('/createQuestions',standard.createQuestions);
 router.post('/createForms',standard.createForms);
 
+router.get('/getDetails/:submission_id',standard.getSubmissionDetails);
+router.post('/insertDetails', standard.insertSubmissionDetails);
+router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
+
 
 //SuperAdmin
 // router.post('/forms', SA.formscreate);
@@ -49,7 +55,7 @@ router.post('/createForms',standard.createForms);
 
 //categoryies
 router.post('/createCategory/:department_id',organizationAdmin.createCategory);
-router.put('/updateCategory/:category_id',organizationAdmin.updateCateogry);
+router.put('/updateCategory/:category_id',organizationAdmin.updateCategory);
 router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
 router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
 router.get('/getAllCategory',organizationAdmin.getAllCategories);
@@ -59,7 +65,7 @@ router.get('/getAllCategory',organizationAdmin.getAllCategories);
 router.post('/createForms/:category_id',organizationAdmin.createForm);
 router.get('/FormById/:form_id',organizationAdmin.getFormById);
 router.get('/getAllForms',organizationAdmin.getAllForms);
-router.put('/updateForm/:form_id',organizationAdmin.updateform);
+//router.put('/updateForm/:form_id',organizationAdmin.updateform);
 router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
 
 //questions

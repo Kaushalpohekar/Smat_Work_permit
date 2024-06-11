@@ -63,124 +63,134 @@ async function createCategory(req, res) {
 
 
 
-async function updateCateogry(req,res){
-    const category_id =req.params.category_id;
-    const {title, subtitle, icon}=req.body;
-    const UpdateCategoryQuery=`UPDATE public.category SET title = $1, subtitle = $2 , icon = $3 WHERE category_id =$4`;
 
-    db.query(UpdateCategoryQuery,[title,subtitle,icon,category_id],(error,result)=>{
-        if(error){
-            console.error('Error updating category:',error);
-            res.status(500).json({message:'Failed to update category'});
-        }
-        if(result.rowCount === 0){
-            return res.status(404).json({message:'Category not found'});
-        }
-        else{
-            res.status(200).json({message:'Category updated successfully'});
-        }
-    })
-}
 
-async function deleteCategory(req,res){
+async function updateCategory(req, res) {
     const category_id = req.params.category_id;
-    const deleteCategoryQuery = `DELETE FROM public.category WHERE category_id = $1`;
-    db.query(deleteCategoryQuery,[category_id],(error,result)=>{
-        if(error){
-            console.error('Error deleteing category:',error);
-            res.status(500).json({message:'Failed to delete category'});
-        }
-        if(result.rowCount === 0){
-            return res.status(404).json({message:'Category not found'})
+    const { name, subtitle, icon , form_type} = req.body;
+    const updateCategoryQuery = `
+        UPDATE public.categories 
+        SET name = $1, subtitle = $2, icon = $3, form_type = $4
+        WHERE category_id = $5
+        RETURNING *
+    `;
 
+    try {
+        const result = await db.query(updateCategoryQuery, [name, subtitle, icon, form_type, category_id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'Category not found' });
         }
-        else{
-            res.status(200).json({message:'Category deleted successfully'});
-        }
-    })
-}
-
-
-async function getCategoryById(req,res){
-    const category_id=req.params.category_id;
-
-    const getCategoryQuery=`SELECT * FROM public.category WHERE category_id = $1`;
-    db.query(getCategoryQuery,[category_id],(error,result)=>{
-        if(error){
-            console.error('Error fetching category:',error);
-            res.status(500).json({message:'Failed to fetch category'});
-        }
-        if(result.rows.length === 0){
-            return res.status(404).json({message:'Category not found'});
-        }
-        else{
-            res.status(200).json(result.rows[0]);
-        }
-    })
-}
-
-
-async function getAllCategories(req,res){
-const getAllCategoriesQuery=`SELECT * FROM public.category`;
-db.query(getAllCategoriesQuery,[],(error,result)=>{
-    if(error){
-        console.error('Error fetching categories:',error);
-        res.status(500).json({message:'Failed to fetch categories'});
+        res.status(200).json({ message: 'Category updated successfully' });
+    } catch (error) {
+        console.error('Error updating category:', error);
+        res.status(500).json({ message: 'Failed to update category' });
     }
-    else{
+}
+
+
+
+
+async function deleteCategory(req, res) {
+    const category_id = req.params.category_id;
+    const deleteCategoryQuery = `DELETE FROM public.categories WHERE category_id = $1`;
+
+    try {
+        const result = await db.query(deleteCategoryQuery, [category_id]);
+        if (result.rowCount === 0) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+        res.status(200).json({ message: 'Category deleted successfully' });
+    } catch (error) {
+        console.error('Error deleting category:', error);
+        res.status(500).json({ message: 'Failed to delete category' });
+    }
+}
+
+
+
+async function getCategoryById(req, res) {
+    const category_id = req.params.category_id;
+
+    const getCategoryQuery = `SELECT * FROM public.categories WHERE category_id = $1`;
+
+    try {
+        const result = await db.query(getCategoryQuery, [category_id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
+        res.status(200).json(result.rows[0]);
+    } catch (error) {
+        console.error('Error fetching category:', error);
+        res.status(500).json({ message: 'Failed to fetch category' });
+    }
+}
+
+
+
+async function getAllCategories(req, res) {
+    const getAllCategoriesQuery = `SELECT * FROM public.categories`;
+
+    try {
+        const result = await db.query(getAllCategoriesQuery, []);
         res.status(200).json(result.rows);
+    } catch (error) {
+        console.error('Error fetching categories:', error);
+        res.status(500).json({ message: 'Failed to fetch categories' });
     }
-})
 }
 
 
 
+async function createForm(req, res) {
+    const { category_id } = req.params;
+    const { form_name, form_description, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker, plant_id } = req.body;
 
+    try {
+        const categoryQuery = `
+            SELECT "name", subtitle, icon 
+            FROM public.categories 
+            WHERE category_id = $1
+        `;
+        const categoryResult = await db.query(categoryQuery, [category_id]);
 
-//forms queries
+        if (categoryResult.rows.length === 0) {
+            return res.status(404).json({ message: 'Category not found' });
+        }
 
-async function createForm(req,res){
-    const { category_id }=req.params;
-    const {form_name,organization, created_by,form_type,start_date,start_time,end_date,end_time,name,worker}=req.body;
+        const { name: title, subtitle, icon } = categoryResult.rows[0];
 
-    const categoryQuery=`SELECT title, subtitle, icon FROM public.category WHERE category_id = $1`;
+        const formUIDQuery = `
+            SELECT COUNT(*) 
+            FROM public.forms 
+            WHERE category_id = $1
+        `;
+        const formCountResult = await db.query(formUIDQuery, [category_id]);
+        const formCount = parseInt(formCountResult.rows[0].count, 10) + 1;
+        const formUID = `${title.slice(0, 3).toUpperCase()}${formCount.toString().padStart(7, '0')}`;
 
-    const categoryResult = await db.query(categoryQuery,[category_id]);
+        const form_id = uuidv4();
 
-    if(categoryResult.rows.length === 0){
-        return res.status(404).json({message:'category not found'});
+        const insertFormQuery = `
+            INSERT INTO public.forms (
+                form_id, form_name, form_description, organization, created_by, form_type, 
+                form_uid, title, subtitle, icon, start_date, start_time, 
+                end_date, end_time, name, worker, category_id, plant_id
+            ) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
+            RETURNING form_id
+        `;
+
+        const insertFormResult = await db.query(insertFormQuery, [
+            form_id, form_name, form_description, organization, created_by, form_type, 
+            formUID, title, subtitle, icon, start_date, start_time, 
+            end_date, end_time, name, worker, category_id, plant_id
+        ]);
+
+        res.status(201).json({ formId: insertFormResult.rows[0].form_id, message: 'Form created successfully' });
+    } catch (error) {
+        console.error('Error creating form:', error);
+        res.status(500).json({ message: 'Failed to create form' });
     }
-
-    const {title, subtitle, icon}=categoryResult.rows[0];
-
-    // Generate formUID
-    const formUIDQuery = `SELECT COUNT(*) FROM public.forms WHERE category_id = $1`;
-    const formCountResult = await db.query(formUIDQuery, [category_id]);
-    const formCount = formCountResult.rows[0].count + 1;
-    const formUID = `${title.slice(0, 3).toUpperCase()}${formCount.toString().padStart(7, '0')}`;
-
-    const formId = uuidv4();
-
-    // const insertFormQuery = `
-    //          INSERT INTO public.forms (form_name, organization, created_by, form_type, form_uid, title, subtitle, icon, start_date, start_time, end_date, end_time, name, worker, category_id) 
-    //          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-    //          RETURNING form_id`;
-    const insertFormQuery = `
-    INSERT INTO public.forms (form_name,organization, created_by, form_type, form_uid, title, subtitle, icon, start_date, start_time, end_date, end_time, "name", worker, category_id) 
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
-    RETURNING form_id`;
-
-    db.query(insertFormQuery,[form_name,organization, created_by, form_type, formUID, title, subtitle, icon, start_date, start_time, end_date, end_time, name, worker, category_id],(error,result)=>{
-        if(error){
-            console.error('Error creating form:',error);
-            res.status(500).json({message:'Failed to create form'});
-        }
-
-        else{
-            res.status(201).json({formId:result.rows[0].form_id,message:'Form created successfully'});
-        }
-    })
-
 }
 
 async function getFormById(req,res){
@@ -214,29 +224,32 @@ async function getAllForms(req,res){
     });
 }
 
-async function updateform(req,res){
-    const {form_id}=req.params;
-    const {form_name, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker } =req.body;
+async function updateForm(req, res) {
+    const { form_id } = req.params;
+    const { form_name, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker } = req.body;
 
-    const updateQuery =`UPDATE public.forms SET form_name = $1, organization = $2, created_by = $3, form_type = $4, start_date = $5, start_time = $6, end_date = $7, end_time = $8, name = $9, worker = $10
-    WHERE form_id = $11
-    RETURNING *`;
+    const updateQuery = `
+        UPDATE public.forms 
+        SET form_name = $1, organization = $2, created_by = $3, form_type = $4, 
+        start_date = $5, start_time = $6, end_date = $7, end_time = $8, name = $9, worker = $10
+        WHERE form_id = $11
+        RETURNING *
+    `;
 
-    db.query(updateQuery),[form_name, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker, form_id],(error,result)=>{
-        if(error){
-            console.error('Error updating forms');
-            res.status(500).json({message:'Failed to update form'});
+    db.query(updateQuery, [form_name, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker, form_id], (error, result) => {
+        if (error) {
+            console.error('Error updating form:', error);
+            res.status(500).json({ message: 'Failed to update form' });
+        } else {
+            if (result.rows.length === 0) {
+                res.status(404).json({ message: 'Form not found' });
+            } else {
+                res.status(200).json({ message: 'Form updated successfully', form: result.rows[0] });
+            }
         }
-        if(result.rows.length === 0){
-             res.status(404).json({message:'form not found'});
-
-        }
-        else{
-            res.status(200).json({message:'Form updated successfully',form:result.rows[0]});
-        }
-    }
-
+    });
 }
+
 
 async function deleteForm(req,res){
 const {form_id}=req.params;
@@ -263,75 +276,50 @@ async function createQuestion(req, res) {
     const { question_text, question_type, options } = req.body;
     const questionId = uuidv4();
 
-    const insertQuestionQuery = `
-        INSERT INTO questions (question_id, form_id, question_text, question_type) 
-        VALUES ($1, $2, $3, $4)
-        RETURNING question_id`;
+    try {
+        const insertQuestionQuery = `
+            INSERT INTO public.questions (question_id, form_id, question_text, question_type) 
+            VALUES ($1, $2, $3, $4)
+            RETURNING question_id
+        `;
 
-    db.query(insertQuestionQuery, [questionId, form_id, question_text, question_type], (error, result) => {
-        if (error) {
-            console.error('Error creating question:', error);
-            res.status(500).json({ message: 'Failed to create question' });
-            return;
-        }
+        const questionResult = await db.query(insertQuestionQuery, [questionId, form_id, question_text, question_type]);
+        const insertedQuestionId = questionResult.rows[0].question_id;
 
-        if (question_type === 'multiple_choice' && Array.isArray(options)) {
-            const insertOptionsQuery = `INSERT INTO options (option_id, question_id, option_text) VALUES ($1, $2, $3)`;
-            const promises = options.map(optionText => {
-                const option_id = uuidv4();
-                return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
-            });
-            
-            Promise.all(promises)
-                .then(() => {
-                    res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
-                })
-                .catch(err => {
-                    console.error('Error creating question options:', err);
-                    res.status(500).json({ message: 'Failed to create question options' });
-                });
-        } else if (question_type === 'yes_no') {
+        if ((question_type === 'multiple_choice' || question_type === 'radio_button') && Array.isArray(options)) {
             const insertOptionsQuery = `
-                INSERT INTO options (option_id, question_id, option_text) 
-                VALUES ($1, $2, $3)`;
+                INSERT INTO public.options (option_id, question_id, option_text) 
+                VALUES ($1, $2, $3)
+            `;
+
+            const optionsPromises = options.map(async (optionText) => {
+                const optionId = uuidv4();
+                await db.query(insertOptionsQuery, [optionId, insertedQuestionId, optionText]);
+            });
+
+            await Promise.all(optionsPromises);
+        } else if (question_type === 'yes_no') {
+            const insertYesOptionQuery = `
+                INSERT INTO public.options (option_id, question_id, option_text) 
+                VALUES ($1, $2, $3)
+            `;
+            const insertNoOptionQuery = `
+                INSERT INTO public.options (option_id, question_id, option_text) 
+                VALUES ($1, $2, $3)
+            `;
 
             const yesOptionId = uuidv4();
             const noOptionId = uuidv4();
 
-            db.query(insertOptionsQuery, [yesOptionId, questionId, 'Yes'], (error) => {
-                if (error) {
-                    console.error('Error creating "Yes" option:', error);
-                    res.status(500).json({ message: 'Failed to create "Yes" option' });
-                    return;
-                }
-                db.query(insertOptionsQuery, [noOptionId, questionId, 'No'], (error) => {
-                    if (error) {
-                        console.error('Error creating "No" option:', error);
-                        res.status(500).json({ message: 'Failed to create "No" option' });
-                        return;
-                    }
-                    res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
-                });
-            });
-        } else if (question_type === 'radio_button' && Array.isArray(options)) {
-            const insertOptionsQuery = `INSERT INTO options (option_id, question_id, option_text) VALUES ($1, $2, $3)`;
-            const promises = options.map(optionText => {
-                const option_id = uuidv4();
-                return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
-            });
-            
-            Promise.all(promises)
-                .then(() => {
-                    res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
-                })
-                .catch(err => {
-                    console.error('Error creating question options:', err);
-                    res.status(500).json({ message: 'Failed to create question options' });
-                });
-        } else {
-            res.status(201).json({ questionId: result.rows[0].question_id, message: 'Question created successfully' });
+            await db.query(insertYesOptionQuery, [yesOptionId, insertedQuestionId, 'Yes']);
+            await db.query(insertNoOptionQuery, [noOptionId, insertedQuestionId, 'No']);
         }
-    });
+
+        res.status(201).json({ questionId: insertedQuestionId, message: 'Question created successfully' });
+    } catch (error) {
+        console.error('Error creating question:', error);
+        res.status(500).json({ message: 'Failed to create question' });
+    }
 }
 
 
@@ -340,33 +328,38 @@ async function updateQuestion(req, res) {
     const questionId = req.params.question_id;
     const { question_text, question_type, options } = req.body;
 
-    const updateQuery = `UPDATE questions SET question_text = $1, question_type = $2 WHERE question_id = $3`;
-    db.query(updateQuery, [question_text, question_type, questionId], async (error, result) => {
-        try {
-            if (error) {
-                console.error('Error updating question:', error);
-                res.status(500).json({ message: 'Failed to update question' });
-                return;
-            }
-            
-            if (question_type === 'multiple_choice' && Array.isArray(options)) {
-                await db.query(`DELETE FROM options WHERE question_id = $1`, [questionId]);
+    const updateQuery = `
+        UPDATE public.questions 
+        SET question_text = $1, question_type = $2 
+        WHERE question_id = $3
+    `;
 
-                const insertOptionsQuery = `INSERT INTO options (option_id, question_id, option_text) VALUES ($1, $2, $3)`;
-                const promises = options.map(optionText => {
-                    const option_id = uuidv4();
-                    return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
-                });
+    try {
+        // Update the question text and type
+        await db.query(updateQuery, [question_text, question_type, questionId]);
 
-                await Promise.all(promises);
-            }
+        if (question_type === 'multiple_choice' && Array.isArray(options)) {
+            // Delete existing options
+            await db.query(`DELETE FROM public.options WHERE question_id = $1`, [questionId]);
 
-            res.status(200).json({ message: 'Question updated successfully' });
-        } catch (err) {
-            console.error('Error updating question:', err);
-            res.status(500).json({ message: 'Failed to update question' });
+            // Insert new options
+            const insertOptionsQuery = `
+                INSERT INTO public.options (option_id, question_id, option_text) 
+                VALUES ($1, $2, $3)
+            `;
+            const promises = options.map(optionText => {
+                const option_id = uuidv4();
+                return db.query(insertOptionsQuery, [option_id, questionId, optionText]);
+            });
+
+            await Promise.all(promises);
         }
-    });
+
+        res.status(200).json({ message: 'Question updated successfully' });
+    } catch (error) {
+        console.error('Error updating question:', error);
+        res.status(500).json({ message: 'Failed to update question' });
+    }
 }
 
 
@@ -385,26 +378,25 @@ async function deleteQuestion(req,res){
 }
 
 
-async function getQuestionByFormId(req,res){
-    const {form_id} = req.params;
-    const getQuestionQuery=`SELECT * FROM questions WHERE form_id = $1`;
-    db.query(getQuestionQuery,[form_id],(error,result)=>{
-        if(error){
-            console.error('Error fetching questions:',error);
-            res.status(500).json({message:'Failed to get questions'});
-        }
-        else{
-            const questions = result.rows;
-            res.status(200).json({questions});
-        }
+async function getQuestionByFormId(req, res) {
+    const { form_id } = req.params;
+    const getQuestionQuery = `SELECT * FROM public.questions WHERE form_id = $1`;
 
-    })
+    try {
+        const result = await db.query(getQuestionQuery, [form_id]);
+        const questions = result.rows;
+        
+        res.status(200).json({ questions });
+    } catch (error) {
+        console.error('Error fetching questions:', error);
+        res.status(500).json({ message: 'Failed to get questions' });
+    }
 }
 
 module.exports={
     //category
     createCategory,
-    updateCateogry,
+    updateCategory,
     deleteCategory,
     getCategoryById,
     getAllCategories,
@@ -413,7 +405,7 @@ module.exports={
     createForm,
     getFormById,
     getAllForms,
-    updateform,
+    updateForm,
     deleteForm,
 
     //form questions
@@ -422,3 +414,4 @@ module.exports={
     deleteQuestion,
     getQuestionByFormId,
 }
+
