@@ -434,37 +434,6 @@ async function createQuestions(req, res) {
     }
 }
 
-
-async function getAuthorizersByDepartment(req, res) {
-    const department_id = req.params.department_id;
-    const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
-
-    console.log('Department ID:', department_id);
-    console.log('Authorizer Role ID:', authorizerRoleId);
-
-    const getQuery = `
-        SELECT first_name, last_name
-        FROM public.users
-        WHERE department_id = $1 AND role_id = $2
-    `;
-
-    try {
-        const result = await db.query(getQuery, [department_id, authorizerRoleId]);
-        console.log('Query Result:', result.rows);
-
-        if (result.rows.length > 0) {
-            res.status(200).json(result.rows);
-        } else {
-            res.status(404).json({ message: 'No authorizers found for this department' });
-        }
-    } catch (error) {
-        console.error('Error fetching authorizers', error);
-        res.status(500).json({ message: 'Error fetching authorizers' });
-    }
-}
-
-
-
 async function getSubmissionDetails(req, res) {
     try {
         // Extract submissionId from request parameters
@@ -576,6 +545,38 @@ async function getSubmissionDetails(req, res) {
 }
 
 
+async function getAuthorizersByDepartment(req, res) {
+    const department_id = req.params.department_id;
+    const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
+    
+    console.log('Department ID:', department_id);
+    console.log('Authorizer Role ID:', authorizerRoleId);
+
+    const getQuery = `
+        SELECT first_name, last_name
+        FROM public.users
+        WHERE department_id = $1 AND role_id = $2
+    `;
+
+    try {
+        const result = await db.query(getQuery, [department_id, authorizerRoleId]);
+        console.log('Query Result:', result.rows);
+
+        if (result.rows.length > 0) {
+            res.status(200).json(result.rows);
+        } else {
+            res.status(404).json({ message: 'No authorizers found for this department' });
+        }
+    } catch (error) {
+        console.error('Error fetching authorizers', error);
+        res.status(500).json({ message: 'Error fetching authorizers' });
+    }
+}
+
+
+
+
+
 
 
 
@@ -670,6 +671,7 @@ async function insertSubmissionDetails (req, res) {
     }
 };
 
+
 module.exports = {
     insertSubmissionDetails
 };
@@ -682,13 +684,11 @@ module.exports = {
     getDepartments,
     getPlants,
     getOrganizations,
-    
     insertCategories,
     createQuestions,
     createForms,
     getAuthorizersByDepartment,
     getSubmissionDetails,
-
     insertSubmissionDetails,
 
 }

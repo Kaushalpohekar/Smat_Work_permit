@@ -38,9 +38,9 @@ router.post('/insertCategories',standard.insertCategories);
 router.post('/createQuestions',standard.createQuestions);
 router.post('/createForms',standard.createForms);
 
-router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
 router.get('/getDetails/:submission_id',standard.getSubmissionDetails);
 router.post('/insertDetails', standard.insertSubmissionDetails);
+router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
 
 
 //SuperAdmin
