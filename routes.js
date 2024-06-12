@@ -19,7 +19,7 @@ router.put('/users/:User_id/block', auth.block);
 router.post('/tokens', auth.getAllTokens);
 router.put('/updateUserdetails',auth.updateUser);
 router.put('/updatemail',auth.updateEmail);
-router.put('/profilePicture/:user_id/profile-picture', upload.single('picture'),auth.updateProfilePicture);
+router.put('/profilePicture/:user_id/profile-picture',auth.updateProfilePicture);
 
 // Dashboard
 router.post('/answer/:user_id',dashboard.postAns);
@@ -40,8 +40,9 @@ router.post('/createForms',standard.createForms);
 
 router.get('/getDetails/:submission_id',standard.getSubmissionDetails);
 router.post('/insertDetails', standard.insertSubmissionDetails);
-router.get('/getAuthorizers/:departmentId',standard.getAuthorizersByDepartment);
-
+router.get('/getAuthorizers/:department_id',standard.getAuthorizersByDepartment);
+router.get('/getSubmissionByInterval/:user_id/:interval', standard.getUserSubmissions);
+router.get('/getSubmissionByIntervalCount/:user_id/:interval', standard.getUserSubmissionStatusCounts);
 
 //SuperAdmin
 // router.post('/forms', SA.formscreate);
