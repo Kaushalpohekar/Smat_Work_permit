@@ -3,6 +3,7 @@ const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
 const { validationResult } = require('express-validator');
+const mime = require('mime-types');
 
 function sanitizeInput(input) {
     return input.replace(/[^\w\s.-]/gi, '');
@@ -363,117 +364,6 @@ async function createQuestions(req, res) {
     }
 }
 
-async function getSubmissionDetails(req, res) {
-    try {
-        // Extract submissionId from request parameters
-        const submissionId = req.params.submission_id;
-
-        // Fetch submission details from the database based on submissionId
-        const submissionQuery = `
-            SELECT
-                s.form_id,
-                s.authorizer,
-                s.start_date,
-                s.start_time,
-                s.end_date,
-                s.end_time,
-                s.location,
-                s.remark
-            FROM
-                public.submissions s
-            WHERE
-                s.submission_id = $1
-        `;
-        const submissionResult = await db.query(submissionQuery, [submissionId]);
-        const submission = submissionResult.rows[0];
-
-        if (!submission) {
-            return res.status(404).json({ error: 'Submission not found' });
-        }
-
-        // Fetch workers for the submission
-        const workersQuery = `
-            SELECT
-                w.worker_id,
-                w.name,
-                w.mobile_number
-            FROM
-                public.submission_workers sw
-            JOIN
-                public.workers w ON sw.worker_id = w.worker_id
-            WHERE
-                sw.submission_id = $1
-        `;
-        const workersResult = await db.query(workersQuery, [submissionId]);
-        const workers = workersResult.rows;
-
-        // Fetch contractors for the submission
-        const contractorsQuery = `
-            SELECT
-                c.contractor_id,
-                c.name,
-                c.mobile_number
-            FROM
-                public.submission_contractors sc
-            JOIN
-                public.contractors c ON sc.contractor_id = c.contractor_id
-            WHERE
-                sc.submission_id = $1
-        `;
-        const contractorsResult = await db.query(contractorsQuery, [submissionId]);
-        const contractors = contractorsResult.rows;
-
-        // Fetch answers to questions for the submission
-        const questionsQuery = `
-            SELECT
-                q.question_id,
-                a.answer_text
-            FROM
-                public.answers a
-            JOIN
-                public.questions q ON a.question_id = q.question_id
-            WHERE
-                a.submission_id = $1
-        `;
-        const questionsResult = await db.query(questionsQuery, [submissionId]);
-        const questions = questionsResult.rows;
-
-        // Construct the submissionDetails object without nesting
-        const submissionDetails = {
-            formId: submission.form_id,
-            categoryID: submission.category_id,
-            authorizer: submission.authorizer,
-            startDate: submission.start_date,
-            startTime: submission.start_time,
-            endDate: submission.end_date,
-            endTime: submission.end_time,
-            location: submission.location,
-            remarks: submission.remark,
-            workers: workers.map(worker => ({
-                id: worker.worker_id,
-                name: worker.name,
-                mobileNumber: worker.mobile_number
-            })),
-            contractors: contractors.map(contractor => ({
-                id: contractor.contractor_id,
-                name: contractor.name,
-                mobileNumber: contractor.mobile_number
-            })),
-            questions: questions.map(question => ({
-                id: question.question_id,
-                answer: question.answer_text
-            }))
-        };
-
-        // Send the submissionDetails as a JSON response
-        res.json(submissionDetails);
-    } catch (error) {
-        console.error('Error fetching submission details:', error);
-        res.status(500).json({ error: 'Error fetching submission details' });
-    }
-}
-
-
 async function getAuthorizersByDepartment(req, res) {
     const department_id = req.params.department_id;
     const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
@@ -742,6 +632,321 @@ async function getUserSubmissionStatusCounts(req, res) {
 }
 
 
+// async function getSubmissionDetails(req, res) {
+//     try {
+//         const submissionId = req.params.submission_id;
+
+//         // Fetch submission details
+//         const submissionQuery = `
+//             SELECT
+//                 form_id,
+//                 authorizer,
+//                 start_date,
+//                 start_time,
+//                 end_date,
+//                 end_time,
+//                 location,
+//                 remark,
+//                 status
+//             FROM
+//                 public.submissions
+//             WHERE
+//                 submission_id = $1
+//         `;
+//         const submissionResult = await db.query(submissionQuery, [submissionId]);
+//         const submission = submissionResult.rows[0];
+
+//         if (!submission) {
+//             return res.status(404).json({ error: { message: 'Submission not found' } });
+//         }
+
+//         // Fetch questions for the form
+//         const questionsQuery = `
+//             SELECT
+//                 question_id,
+//                 question_text,
+//                 question_type
+//             FROM
+//                 public.questions
+//             WHERE
+//                 form_id = $1
+//         `;
+//         const questionsResult = await db.query(questionsQuery, [submission.form_id]);
+//         const questions = questionsResult.rows;
+
+//         // Fetch answers for the submission
+//         const answersQuery = `
+//             SELECT
+//                 q.question_id,
+//                 q.question_text,
+//                 q.question_type,
+//                 a.answer_text
+//             FROM
+//                 public.questions q
+//             LEFT JOIN
+//                 public.answers a ON q.question_id = a.question_id
+//             WHERE
+//                 q.form_id = $1
+//                 AND a.submission_id = $2
+//         `;
+//         const answersResult = await db.query(answersQuery, [submission.form_id, submissionId]);
+//         const answers = answersResult.rows;
+
+//         // Prepare response data with questions, answers, and attachment details
+//         const responseData = {
+//             submission,
+//             questions: questions.map(question => ({
+//                 questionId: question.question_id,
+//                 questionText: question.question_text,
+//                 questionType: question.question_type,
+//                 answer: answers.find(answer => answer.question_id === question.question_id)?.answer_text || ''
+//             }))
+//         };
+
+//         // Fetch attachment details for each question
+//         for (const answer of answers) {
+//             if (answer.answer_file_path) {
+//                 const attachmentQuery = `
+//                     SELECT
+//                         file_name,
+//                         file_path
+//                     FROM
+//                         public.attachments
+//                     WHERE
+//                         submission_id = $1
+//                         AND question_id = $2
+//                 `;
+//                 const attachmentResult = await db.query(attachmentQuery, [submissionId, answer.question_id]);
+//                 const attachment = attachmentResult.rows[0];
+
+//                 if (attachment && attachment.file_path) {
+//                     // Add attachment details to the response
+//                     answer.attachment = {
+//                         fileName: attachment.file_name,
+//                         filePath: attachment.file_path
+//                     };
+//                 }
+//             }
+//         }
+
+//         res.status(200).json(responseData);
+//     } catch (error) {
+//         console.error('Error fetching submission details:', error);
+//         res.status(500).json({ error: { message: 'Error fetching submission details' } });
+//     }
+// }
+async function getSubmissionDetails(req, res) {
+    try {
+        const submissionId = req.params.submission_id;
+
+        // Fetch submission details
+        const submissionQuery = `
+            SELECT
+                form_id,
+                authorizer,
+                start_date,
+                start_time,
+                end_date,
+                end_time,
+                location,
+                remark,
+                status,
+                requested_by,
+                created_at
+            FROM
+                public.submissions
+            WHERE
+                submission_id = $1
+        `;
+        const submissionResult = await db.query(submissionQuery, [submissionId]);
+        const submission = submissionResult.rows[0];
+
+        if (!submission) {
+            return res.status(404).json({ error: { message: 'Submission not found' } });
+        }
+
+        // Fetch first_name and last_name for requested_by
+        const requestedByQuery = `
+            SELECT
+                first_name,
+                last_name
+            FROM
+                public.users
+            WHERE
+                user_id = $1
+        `;
+        const requestedByResult = await db.query(requestedByQuery, [submission.requested_by]);
+        const requestedByUser = requestedByResult.rows[0];
+
+        // Fetch first_name and last_name for authorizer
+        const authorizerQuery = `
+            SELECT
+                first_name,
+                last_name
+            FROM
+                public.users
+            WHERE
+                user_id = $1
+        `;
+        const authorizerResult = await db.query(authorizerQuery, [submission.authorizer]);
+        const authorizerUser = authorizerResult.rows[0];
+
+        // Fetch questions for the form
+        const questionsQuery = `
+            SELECT
+                question_id,
+                question_text,
+                question_type
+            FROM
+                public.questions
+            WHERE
+                form_id = $1
+        `;
+        const questionsResult = await db.query(questionsQuery, [submission.form_id]);
+        const questions = questionsResult.rows;
+
+        // Fetch answers for the submission
+        const answersQuery = `
+            SELECT
+                q.question_id,
+                q.question_text,
+                q.question_type,
+                a.answer_text
+            FROM
+                public.questions q
+            LEFT JOIN
+                public.answers a ON q.question_id = a.question_id
+            WHERE
+                q.form_id = $1
+                AND a.submission_id = $2
+        `;
+        const answersResult = await db.query(answersQuery, [submission.form_id, submissionId]);
+        const answers = answersResult.rows;
+
+        const workersQuery = `
+            SELECT
+                w.name,
+                w.mobile_number
+            FROM
+                public.submission_workers sw
+            JOIN
+                public.workers w ON sw.worker_id = w.worker_id
+            WHERE
+                sw.submission_id = $1
+        `;
+        const workersResult = await db.query(workersQuery, [submissionId]);
+        const workers = workersResult.rows;
+
+        const contractorsQuery = `
+            SELECT
+                c.name,
+                c.mobile_number
+            FROM
+                public.submission_contractors sc
+            JOIN
+                public.contractors c ON sc.contractor_id = c.contractor_id
+            WHERE
+                sc.submission_id = $1
+        `;
+        const contractorsResult = await db.query(contractorsQuery, [submissionId]);
+        const contractors = contractorsResult.rows;
+
+        const formQuery = `
+            SELECT
+                form_name,
+                category_id
+            FROM
+                public.forms
+            WHERE
+                form_id = $1
+        `;
+        const formResult = await db.query(formQuery, [submission.form_id]);
+        const form = formResult.rows[0];
+
+        const categoryQuery = `
+            SELECT
+                name,
+                subtitle,
+                icon
+            FROM
+                public.categories
+            WHERE
+                category_id = $1
+        `;
+        const categoryResult = await db.query(categoryQuery, [form.category_id]);
+        const category = categoryResult.rows[0];
+
+        // Prepare response data with questions and answers
+        const responseData = {
+            submission: {
+                form_data: form,
+                category_data: category,
+                ...submission,
+                requested_by: {
+                    first_name: requestedByUser.first_name,
+                    last_name: requestedByUser.last_name
+                },
+                authorizer: {
+                    first_name: authorizerUser.first_name,
+                    last_name: authorizerUser.last_name
+                },
+            },
+            workers: workers,
+            contractors: contractors,
+            questions: questions.map(question => ({
+                questionId: question.question_id,
+                questionText: question.question_text,
+                questionType: question.question_type,
+                answer: answers.find(answer => answer.question_id === question.question_id)?.answer_text || ''
+            }))
+        };
+
+        // Fetch and convert attachments to base64
+        for (const question of questions) {
+            const attachmentQuery = `
+                SELECT
+                    file_name,
+                    file_path
+                FROM
+                    public.attachments
+                WHERE
+                    submission_id = $1
+                    AND question_id = $2
+            `;
+            const attachmentResult = await db.query(attachmentQuery, [submissionId, question.question_id]);
+            const attachment = attachmentResult.rows[0];
+
+            if (attachment && attachment.file_path) {
+                try {
+                    // Read file as buffer
+                    const fileBuffer = fs.readFileSync(attachment.file_path);
+
+                    // Convert buffer to base64 string
+                    const base64File = fileBuffer.toString('base64');
+                    const mimeType = mime.lookup(attachment.file_name);
+                    const attachmentData = `data:${mimeType || 'application/octet-stream'};base64,${base64File}`;
+
+                    // Add attachment details to the response
+                    const questionToUpdate = responseData.questions.find(q => q.questionId === question.question_id);
+                    if (questionToUpdate) {
+                        questionToUpdate.attachment = {
+                            fileName: attachment.file_name,
+                            data: attachmentData
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error reading attachment file:', error);
+                }
+            }
+        }
+
+        res.status(200).json(responseData);
+    } catch (error) {
+        console.error('Error fetching submission details:', error);
+        res.status(500).json({ error: { message: 'Error fetching submission details' } });
+    }
+}
+
 
 
 
@@ -756,8 +961,8 @@ module.exports = {
     createQuestions,
     createForms,
     getAuthorizersByDepartment,
-    getSubmissionDetails,
     insertSubmissionDetails,
     getUserSubmissions,
-    getUserSubmissionStatusCounts
+    getUserSubmissionStatusCounts,
+    getSubmissionDetails
 }
