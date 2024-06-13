@@ -348,6 +348,98 @@ async function getAllTokens(req, res) {
 }
 
 
+async function updateUser(req,res){
+const user_id =req.params.user_id;
+const {first_name,last_name,department_id}=req.body;
+const updatequery=`UPDATE public.users
+SET first_name = $1,
+    last_name = $2,
+    department_id = $3
+WHERE user_id = $4
+`;
+db.query(updatequery,[first_name,last_name,department_id,user_id],(error,result)=>{
+    if(error){
+        console.error("error updateing user details");
+        return res.status(500).json({message:'Errror changeing user details'});
+    }
+    if(result.rowCount === 0){
+        return res.staus(404).json({message:'Iser not found'});
+    }
+    else{
+        return res.status(404).json({message:'User details updated successfully'});
+    }
+})
+}
+
+async  function updateEmail(req,res){
+const user_id=req.parms.user_id;
+const {company_email,personal_email,contact_no}=req.body;
+const query=`UPDATE public.users 
+SET company_email=$1,
+personal_email=$2,
+contact_no=$3
+WHERE user_id=$4`;
+db.query(query,[user_id,company_email,personal_email,contact_no],(error,result)=>{
+    if(error){
+        console.error('Error updating User details');
+        return res.status(500).json({message:'Error updating user'});
+    }
+    if(result.rowCount === 0){
+        return res.status(500).json({message:'User does not exist'});
+
+    }
+    else{
+        return res.status(404).json({message:'User details updated successfully'});
+    }
+})
+}
+
+
+async function updateProfilePicture(req, res) {
+    const user_id = req.params.user_id;
+    const file = req.file;
+
+    if (!file) {
+        return res.status(400).json({ message: 'No file uploaded' });
+    }
+
+    const checkUserQuery = 'SELECT * FROM public.users WHERE user_id = $1';
+    try {
+        const userResult = await db.query(checkUserQuery, [user_id]);
+        if (userResult.rows.length === 0) {
+            return res.status(404).json({ message: 'User does not exist' });
+        }
+
+        const checkPictureQuery = 'SELECT * FROM public.profile_pictures WHERE user_id = $1';
+        const pictureResult = await db.query(checkPictureQuery, [user_id]);
+
+        let query;
+        let params;
+
+        if (pictureResult.rows.length > 0) {
+            query = `
+                UPDATE public.profile_pictures 
+                SET picture = $1, created_at = CURRENT_TIMESTAMP
+                WHERE user_id = $2
+            `;
+            params = [file.buffer, user_id];
+        } else {
+            query = `
+                INSERT INTO public.profile_pictures (picture_id, user_id, picture, created_at)
+                VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP)
+            `;
+            params = [user_id, file.buffer];
+        }
+
+        const result = await db.query(query, params);
+
+        return res.status(200).json({ message: 'Profile picture updated successfully' });
+
+    } catch (error) {
+        console.error('Error updating profile picture:', error);
+        return res.status(500).json({ message: 'Error updating profile picture' });
+    }
+}
 
 module.exports={
   forgotPassword,
@@ -357,5 +449,12 @@ module.exports={
   login,
   getUserDetails,
   block,
-  getAllTokens
+  getAllTokens,
+
+  ///new created on  10 jun 2024
+  updateUser,
+  updateEmail,
+  updateProfilePicture,
+
+
 };

@@ -1,4 +1,7 @@
 const db = require('../db');
+const { v4: uuidv4 } = require('uuid');
+const fs = require('fs');
+const path = require('path');
 const { validationResult } = require('express-validator');
 
 function sanitizeInput(input) {
@@ -66,37 +69,6 @@ async function getForms(req, res) {
     }
 }
 
-
-// async function getQuestions(req, res) {
-//     const { form_id } = req.params;
-
-//     if (!form_id) {
-//         return res.status(400).json({ error: 'Form ID is required' });
-//     }
-
-//     const fetchQueQuery = `
-//         SELECT q.*, a.answer_text 
-//         FROM questions q
-//         LEFT JOIN answers a ON q.question_id = a.question_id
-//         WHERE q.form_id = $1
-//     `;
-
-//     try {
-//         const sanitizedFormId = sanitizeInput(form_id);
-
-//         const fetchresult = await db.query(fetchQueQuery, [sanitizedFormId]);
-
-//         if (fetchresult.rows.length === 0) {
-//             return res.status(404).json({ error: 'No questions available for the specified form ID' });
-//         }
-
-//         res.status(200).json(fetchresult.rows);
-//     } catch (err) {
-//         console.error('Error fetching questions:', err);
-//         res.status(500).json({ error: 'Failed to fetch questions' });
-//     }
-// }
-
 async function getQuestions(req, res) {
     const form_id = req.params.form_id;
 
@@ -147,7 +119,6 @@ async function getQuestions(req, res) {
         res.status(500).json({ message: "Error processing request" });
     }
 }
-
 
 async function getDepartments (req, res) {
     const department_id = req.params.department_id;
@@ -226,7 +197,6 @@ async function getOrganizations (req, res) {
     }
 };
 
-
 async function insertCategories(req, res) {
     const { name, subtitle, icon, form_type, department_name } = req.body;
 
@@ -264,45 +234,6 @@ async function insertCategories(req, res) {
         res.status(500).json({ message: "Error fetching department ID" });
     }
 }
-
-
-// async function createQuestions(req, res) {
-//     const { form_name, question_text, question_type } = req.body;
-
-//     const fetchFormId = async (formName) => {
-//         const query = `SELECT form_id FROM public.forms WHERE form_name = $1`;
-//         return new Promise((resolve, reject) => {
-//             db.query(query, [formName], (error, result) => {
-//                 if (error) {
-//                     console.error('Error fetching form ID', error);
-//                     reject(error);
-//                 } else if (result.rows.length === 0) {
-//                     reject(new Error('Form not found'));
-//                 } else {
-//                     resolve(result.rows[0].form_id);
-//                 }
-//             });
-//         });
-//     };
-
-//     try {
-//         const form_id = await fetchFormId(form_name);
-
-//         const createQuery = `INSERT INTO public.questions (form_id, question_text, question_type) VALUES ($1, $2, $3) RETURNING *`;
-
-//         db.query(createQuery, [form_id, question_text, question_type], (error, result) => {
-//             if (error) {
-//                 console.error('Error inserting data', error);
-//                 res.status(500).json({ message: 'Error inserting data' });
-//             } else {
-//                 res.status(201).json(result.rows[0]);
-//             }
-//         });
-//     } catch (error) {
-//         console.error('Error fetching form ID', error);
-//         res.status(500).json({ message: 'Error fetching form ID' });
-//     }
-// }
 
 async function createForms(req, res) {
     const { category_id, plant_id, form_name, form_description, created_by } = req.body;
@@ -432,6 +363,385 @@ async function createQuestions(req, res) {
     }
 }
 
+async function getSubmissionDetails(req, res) {
+    try {
+        // Extract submissionId from request parameters
+        const submissionId = req.params.submission_id;
+
+        // Fetch submission details from the database based on submissionId
+        const submissionQuery = `
+            SELECT
+                s.form_id,
+                s.authorizer,
+                s.start_date,
+                s.start_time,
+                s.end_date,
+                s.end_time,
+                s.location,
+                s.remark
+            FROM
+                public.submissions s
+            WHERE
+                s.submission_id = $1
+        `;
+        const submissionResult = await db.query(submissionQuery, [submissionId]);
+        const submission = submissionResult.rows[0];
+
+        if (!submission) {
+            return res.status(404).json({ error: 'Submission not found' });
+        }
+
+        // Fetch workers for the submission
+        const workersQuery = `
+            SELECT
+                w.worker_id,
+                w.name,
+                w.mobile_number
+            FROM
+                public.submission_workers sw
+            JOIN
+                public.workers w ON sw.worker_id = w.worker_id
+            WHERE
+                sw.submission_id = $1
+        `;
+        const workersResult = await db.query(workersQuery, [submissionId]);
+        const workers = workersResult.rows;
+
+        // Fetch contractors for the submission
+        const contractorsQuery = `
+            SELECT
+                c.contractor_id,
+                c.name,
+                c.mobile_number
+            FROM
+                public.submission_contractors sc
+            JOIN
+                public.contractors c ON sc.contractor_id = c.contractor_id
+            WHERE
+                sc.submission_id = $1
+        `;
+        const contractorsResult = await db.query(contractorsQuery, [submissionId]);
+        const contractors = contractorsResult.rows;
+
+        // Fetch answers to questions for the submission
+        const questionsQuery = `
+            SELECT
+                q.question_id,
+                a.answer_text
+            FROM
+                public.answers a
+            JOIN
+                public.questions q ON a.question_id = q.question_id
+            WHERE
+                a.submission_id = $1
+        `;
+        const questionsResult = await db.query(questionsQuery, [submissionId]);
+        const questions = questionsResult.rows;
+
+        // Construct the submissionDetails object without nesting
+        const submissionDetails = {
+            formId: submission.form_id,
+            categoryID: submission.category_id,
+            authorizer: submission.authorizer,
+            startDate: submission.start_date,
+            startTime: submission.start_time,
+            endDate: submission.end_date,
+            endTime: submission.end_time,
+            location: submission.location,
+            remarks: submission.remark,
+            workers: workers.map(worker => ({
+                id: worker.worker_id,
+                name: worker.name,
+                mobileNumber: worker.mobile_number
+            })),
+            contractors: contractors.map(contractor => ({
+                id: contractor.contractor_id,
+                name: contractor.name,
+                mobileNumber: contractor.mobile_number
+            })),
+            questions: questions.map(question => ({
+                id: question.question_id,
+                answer: question.answer_text
+            }))
+        };
+
+        // Send the submissionDetails as a JSON response
+        res.json(submissionDetails);
+    } catch (error) {
+        console.error('Error fetching submission details:', error);
+        res.status(500).json({ error: 'Error fetching submission details' });
+    }
+}
+
+
+async function getAuthorizersByDepartment(req, res) {
+    const department_id = req.params.department_id;
+    const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
+    
+    console.log('Department ID:', department_id);
+    console.log('Authorizer Role ID:', authorizerRoleId);
+
+    const getQuery = `
+        SELECT first_name, last_name, user_id
+        FROM public.users
+        WHERE department_id = $1 AND role_id = $2
+    `;
+
+    try {
+        const result = await db.query(getQuery, [department_id, authorizerRoleId]);
+        console.log('Query Result:', result.rows);
+
+        if (result.rows.length > 0) {
+            res.status(200).json(result.rows);
+        } else {
+            res.status(404).json({ message: 'No authorizers found for this department' });
+        }
+    } catch (error) {
+        console.error('Error fetching authorizers', error);
+        res.status(500).json({ message: 'Error fetching authorizers' });
+    }
+}
+
+async function insertSubmissionDetails(req, res) {
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+        const status = 'opened';
+        const { formId, authorizer, requestedBy, startDate, startTime, endDate, endTime, location, remarks, workers, contractors, questions } = req.body;
+        const submissionId = uuidv4();
+        const insertSubmissionQuery = `INSERT INTO public.submissions (submission_id, form_id, authorizer, requested_by, start_date, start_time, end_date, end_time, location, remark, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
+        await client.query(insertSubmissionQuery, [submissionId, formId, authorizer, requestedBy, startDate, startTime, endDate, endTime, location, remarks, status]);
+        
+        for (const worker of workers) {
+            const workerId = worker.id || uuidv4();
+            const insertWorkerQuery = `INSERT INTO public.workers (worker_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (worker_id) DO NOTHING`;
+            await client.query(insertWorkerQuery, [workerId, worker.name, worker.mobileNumber]);
+            const insertSubmissionWorkerQuery = `INSERT INTO public.submission_workers (submission_id, worker_id) VALUES ($1, $2)`;
+            await client.query(insertSubmissionWorkerQuery, [submissionId, workerId]);
+        }
+        
+        for (const contractor of contractors) {
+            const contractorId = contractor.id || uuidv4();
+            const insertContractorQuery = `INSERT INTO public.contractors (contractor_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (contractor_id) DO NOTHING`;
+            await client.query(insertContractorQuery, [contractorId, contractor.name, contractor.mobileNumber]);
+            const insertSubmissionContractorQuery = `INSERT INTO public.submission_contractors (submission_id, contractor_id) VALUES ($1, $2)`;
+            await client.query(insertSubmissionContractorQuery, [submissionId, contractorId]);
+        }
+        
+        for (const question of questions) {
+            const insertAnswerQuery = `INSERT INTO public.answers (submission_id, question_id, answer_text) VALUES ($1, $2, $3)`;
+            await client.query(insertAnswerQuery, [submissionId, question.question_id, question.answer]);
+
+            if (question.attachment && question.attachment.data) {
+                console.log(question.attachment.data);
+                const originalFileName = question.attachment.file_name;
+                const attachmentFileName = `${submissionId}_${originalFileName}`;
+                const attachmentDir = path.join(__dirname, '../uploads');
+                const absoluteAttachmentPath = path.join(attachmentDir, attachmentFileName);
+
+                try {
+                    // Ensure the directory exists
+                    if (!fs.existsSync(attachmentDir)) {
+                        fs.mkdirSync(attachmentDir);
+                    }
+
+                    // Save the attachment file to local storage
+                    const base64Data = question.attachment.data.split(';base64,').pop();
+                    const buffer = Buffer.from(base64Data, 'base64');
+                    fs.writeFileSync(absoluteAttachmentPath, buffer);
+
+                    // Verify if the file size is correct
+                    const savedFileSize = fs.statSync(absoluteAttachmentPath).size;
+                    if (savedFileSize !== buffer.length) {
+                        throw new Error('File size mismatch after writing');
+                    }
+
+                    // Insert a record into the attachments table with the relative path
+                    const insertAttachmentQuery = `INSERT INTO public.attachments (submission_id, question_id, file_name, file_path) VALUES ($1, $2, $3, $4)`;
+                    await client.query(insertAttachmentQuery, [submissionId, question.question_id, attachmentFileName, `uploads/${attachmentFileName}`]);
+                } catch (fileError) {
+                    throw new Error(`File handling error: ${fileError.message}`);
+                }
+            }
+        }
+        
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Submission details inserted successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error inserting submission details:', error);
+        res.status(500).json({ error: 'Error inserting submission details' });
+    } finally {
+        client.release();
+    }
+}
+
+async function getUserSubmissions(req, res) {
+    const user_id  = req.params.user_id;
+    const interval = req.params.interval;
+
+    try {
+        // Ensure user_id is provided
+        if (!user_id || !interval) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        let intervalCondition = '';
+        let intervalValue = '';
+
+        switch (interval) {
+            case '1hour':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+                intervalValue = 'Hour';
+                break;
+            case '1day':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+                intervalValue = 'Day';
+                break;
+            case '1week':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+                intervalValue = 'Week';
+                break;
+            case '1month':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+                intervalValue = 'Month';
+                break;
+            case '6month':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+                intervalValue = 'Half Year';
+                break;
+            case '12month':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+                intervalValue = 'Full Year';
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid interval value' });
+        }
+
+        const userFormQuery = `
+            SELECT submission_id, remark, status, created_at, form_id, authorizer FROM submissions
+            WHERE requested_by = $1 
+            ${intervalCondition} ORDER BY created_at DESC`;
+
+        const result = await db.query(userFormQuery, [user_id]);
+        if (result.rows.length === 0) {
+            return res.status(404).json({ error: 'No Submissions available for the specified request' });
+        }
+
+        // Array to hold submission data with form and authorizer details
+        let submissionsWithDetails = [];
+
+        // Fetch form data and authorizer details for each submission
+        for (let submission of result.rows) {
+            const formDataQuery = `
+                SELECT form_name FROM forms
+                WHERE form_id = $1`;
+            
+            const formDataResult = await db.query(formDataQuery, [submission.form_id]);
+            if (formDataResult.rows.length === 1) {
+                // Fetch authorizer details
+                const authorizerDataQuery = `
+                    SELECT first_name, last_name FROM users
+                    WHERE user_id = $1`;
+
+                const authorizerDataResult = await db.query(authorizerDataQuery, [submission.authorizer]);
+                if (authorizerDataResult.rows.length === 1) {
+                    // Merge submission data with form data and authorizer details
+                    let submissionWithDetails = { 
+                        ...submission, 
+                        form_data: formDataResult.rows[0],
+                        authorizer_details: authorizerDataResult.rows[0]
+                    };
+                    submissionsWithDetails.push(submissionWithDetails);
+                } else {
+                    console.error('Authorizer data not found for user ID:', submission.authorizer);
+                }
+            } else {
+                console.error('Form data not found for submission ID:', submission.submission_id);
+            }
+        }
+
+        res.status(200).json(submissionsWithDetails);
+
+    } catch (err) {
+        console.error('Error fetching user submissions:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+async function getUserSubmissionStatusCounts(req, res) {
+    const user_id = req.params.user_id;
+    const interval = req.params.interval;
+
+    try {
+        // Ensure user_id and interval are provided
+        if (!user_id || !interval) {
+            return res.status(400).json({ error: 'User ID and interval are required' });
+        }
+
+        let intervalCondition = '';
+
+        switch (interval) {
+            case '1hour':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+                break;
+            case '1day':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+                break;
+            case '1week':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+                break;
+            case '1month':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+                break;
+            case '6month':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+                break;
+            case '12month':
+                intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+                break;
+            default:
+                return res.status(400).json({ error: 'Invalid interval value' });
+        }
+
+        // Query to get status counts
+        const statusCountQuery = `
+            SELECT status, COUNT(*) as count
+            FROM submissions
+            WHERE requested_by = $1 
+            ${intervalCondition}
+            GROUP BY status`;
+
+        // Query to get total count
+        const totalCountQuery = `
+            SELECT COUNT(*) as total_count
+            FROM submissions
+            WHERE requested_by = $1 
+            ${intervalCondition}`;
+
+        // Execute the queries sequentially
+        const statusResult = await db.query(statusCountQuery, [user_id]);
+        const totalResult = await db.query(totalCountQuery, [user_id]);
+
+        const statusCounts = {};
+        statusResult.rows.forEach(row => {
+            statusCounts[row.status] = row.count;
+        });
+
+        // Extract total count from the result
+        const totalCount = totalResult.rows[0].total_count;
+
+        // Send JSON response with status code 200
+        res.status(200).json({ statusCounts, totalCount });
+
+    } catch (err) {
+        console.error('Error fetching user submission status counts:', err);
+        // Send error response with status code 500
+        res.status(500).json({ error: 'Failed to fetch user submission status counts' });
+    }
+}
+
+
 
 
 
@@ -442,8 +752,12 @@ module.exports = {
     getDepartments,
     getPlants,
     getOrganizations,
-    
     insertCategories,
     createQuestions,
-    createForms
+    createForms,
+    getAuthorizersByDepartment,
+    getSubmissionDetails,
+    insertSubmissionDetails,
+    getUserSubmissions,
+    getUserSubmissionStatusCounts
 }
