@@ -948,6 +948,55 @@ async function getSubmissionDetails(req, res) {
 }
 
 
+ 
+//getsubmissioncounts
+async function getsubmissioncount(req, res) {
+    const { form_type, user_id } = req.params;
+
+    // Validate inputs
+    if (!form_type) {
+        return res.status(400).json({ error: 'form_type is required' });
+    }
+    
+    if (!user_id) {
+        return res.status(400).json({ error: 'user_id is required' });
+    }
+
+    try {
+        // Get all categories for the given form_type
+        const categoriesResult = await db.query('SELECT category_id FROM categories WHERE form_type = $1', [form_type]);
+        const categories = categoriesResult.rows;
+
+        if (categories.length === 0) {
+            return res.json({ message: 'No categories found for the given form type' });
+        }
+        
+        const categoriesWithForms = await Promise.all(categories.map(async (category) => {
+            const formsResult = await db.query('SELECT form_id FROM forms WHERE category_id = $1', [category.category_id]);
+            const forms = formsResult.rows;
+            return { ...category, forms };
+        }));
+
+        // Retrieve submission counts by status for each form and category
+        const CountByStatusForUser = await Promise.all(categoriesWithForms.map(async (category) => {
+            const formsWithStatusCounts = await Promise.all(category.forms.map(async (form) => {
+                const statusResult = await db.query('SELECT status, COUNT(*) AS count FROM submissions WHERE form_id = $1 AND requested_by = $2 GROUP BY status', [form.form_id, user_id]);
+                const statusCounts = statusResult.rows;
+                return { ...form, status: statusCounts };
+            }));
+
+            return { ...category, forms: formsWithStatusCounts };
+        }));
+
+        res.json(CountByStatusForUser);
+    } catch (error) {
+        console.error('Error fetching submission counts:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+
+ 
 
 
 module.exports = {
@@ -964,5 +1013,6 @@ module.exports = {
     insertSubmissionDetails,
     getUserSubmissions,
     getUserSubmissionStatusCounts,
-    getSubmissionDetails
+    getSubmissionDetails,
+    getsubmissioncount
 }

@@ -43,6 +43,8 @@ router.post('/insertDetails', standard.insertSubmissionDetails);
 router.get('/getAuthorizers/:department_id',standard.getAuthorizersByDepartment);
 router.get('/getSubmissionByInterval/:user_id/:interval', standard.getUserSubmissions);
 router.get('/getSubmissionByIntervalCount/:user_id/:interval', standard.getUserSubmissionStatusCounts);
+router.get('/getsubmissioncount/:form_type/:user_id', standard.getsubmissioncount);
+
 
 //SuperAdmin
 // router.post('/forms', SA.formscreate);
