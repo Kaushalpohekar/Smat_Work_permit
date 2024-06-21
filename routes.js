@@ -19,8 +19,8 @@ router.put('/users/:User_id/block', auth.block);
 router.post('/tokens', auth.getAllTokens);
 router.put('/updateUserdetails', auth.updateUser);
 router.put('/updatemail', auth.updateEmail);
-router.put('/profilePicture/:user_id/profile-picture', auth.updateProfilePicture);
-
+router.put('/updateprofilePicture/:user_id/profile-picture', auth.updateProfilePicture);
+router.get('/profilePicture/:user_id', auth.getProfilePicture);
 // Dashboard
 router.post('/answer/:user_id', dashboard.postAns);
 
@@ -39,10 +39,13 @@ router.post('/insertDetails', standard.insertSubmissionDetails);
 router.get('/getAuthorizers/:department_id', standard.getAuthorizersByDepartment);
 router.get('/getSubmissionByInterval/:user_id/:interval', standard.getUserSubmissions);
 router.get('/getSubmissionByIntervalCount/:user_id/:interval', standard.getUserSubmissionStatusCounts);
+router.get('/getSubmissionCount/:form_type/:user_id', standard.getsubmissioncount);
 // Authorizer
 router.get('/getSubmissionByIntervalAuthorizer/:category_id/:user_id/:interval', authorizer.getUserSubmissions);
 router.put('/approveSubmission', authorizer.approveSubmission);
 router.put('/rejectSubmission', authorizer.rejectSubmission);
+router.get('/profileDetails/:user_id', authorizer.getUserDetails);
+
 
 // Organization Admin - Categories
 router.post('/createCategory/:department_id', organizationAdmin.createCategory);
