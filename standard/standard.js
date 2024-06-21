@@ -996,8 +996,41 @@ async function getsubmissioncount(req, res) {
 }
 
 
- 
-
+async function creatingForms(req, res) {
+        const formData = req.body;
+      
+        // Insert form data into PostgreSQL
+        const query = `
+          INSERT INTO form (job_area, job_date, job_description, participants_name, work_start_time, work_end_time, work_description, risk_reduction_measures, responsible, sign, hazard_consequences)
+          VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+          RETURNING *
+        `;
+      
+        const values = [
+          formData.job_area,
+          formData.job_date,
+          formData.job_description,
+          formData.participants_name,
+          formData.work_start_time,
+          formData.work_end_time,
+          formData.work_description,
+          formData.risk_reduction_measures,
+          formData.responsible,
+          formData.sign,
+          formData.hazard_consequences,
+        ];
+      
+        db.query(query, values, (err, result) => {
+          if (err) {
+            console.error('Error executing query', err);
+            res.status(500).send('Error saving form data');
+          } else {
+            console.log('Form data saved successfully:', result.rows[0]);
+            res.status(201).send('Form data saved successfully');
+          }
+        });
+      };
+    
 
 module.exports = {
     getCategories,
@@ -1014,5 +1047,6 @@ module.exports = {
     getUserSubmissions,
     getUserSubmissionStatusCounts,
     getSubmissionDetails,
-    getsubmissioncount
+    getsubmissioncount,
+    creatingForms
 }

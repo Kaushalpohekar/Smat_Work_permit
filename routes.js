@@ -44,6 +44,8 @@ router.get('/getAuthorizers/:department_id',standard.getAuthorizersByDepartment)
 router.get('/getSubmissionByInterval/:user_id/:interval', standard.getUserSubmissions);
 router.get('/getSubmissionByIntervalCount/:user_id/:interval', standard.getUserSubmissionStatusCounts);
 router.get('/getsubmissioncount/:form_type/:user_id', standard.getsubmissioncount);
+router.post('/creatingForms',standard.creatingForms);
+
 
 
 //SuperAdmin
@@ -56,7 +58,7 @@ router.get('/getsubmissioncount/:form_type/:user_id', standard.getsubmissioncoun
 
 //Organization Admin
 
-//categoryies
+//categories
 router.post('/createCategory/:department_id',organizationAdmin.createCategory);
 router.put('/updateCategory/:category_id',organizationAdmin.updateCategory);
 router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
@@ -64,7 +66,7 @@ router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
 router.get('/getAllCategory',organizationAdmin.getAllCategories);
 
 //forms
-router.post('/createForms/:category_id',organizationAdmin.createForm);
+router.post('/createForms',organizationAdmin.createForm);
 router.get('/FormById/:form_id',organizationAdmin.getFormById);
 router.get('/getAllForms',organizationAdmin.getAllForms);
 //router.put('/updateForm/:form_id',organizationAdmin.updateform);
