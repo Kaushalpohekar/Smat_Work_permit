@@ -950,7 +950,7 @@ async function getSubmissionDetails(req, res) {
 
  
 //getsubmissioncounts
-async function getsubmissioncount(req, res) {
+async function getSubmissionCount(req, res) {
     const { form_type, user_id } = req.params;
 
     // Validate inputs
@@ -963,40 +963,37 @@ async function getsubmissioncount(req, res) {
     }
 
     try {
-        // Get all categories for the given form_type
-        const categoriesResult = await db.query('SELECT category_id FROM categories WHERE form_type = $1', [form_type]);
-        const categories = categoriesResult.rows;
+        // Query to fetch submission counts grouped by status for a user and form type
+        const query = `
+            SELECT s.status, COUNT(*) AS count
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.form_id
+            JOIN categories c ON f.category_id = c.category_id
+            WHERE c.form_type = $1 AND s.requested_by = $2
+            GROUP BY s.status;
+        `;
 
-        if (categories.length === 0) {
-            return res.json({ message: 'No categories found for the given form type' });
+        // Execute the query with form_type and user_id parameters
+        const { rows } = await db.query(query, [form_type, user_id]);
+
+        if (rows.length === 0) {
+            return res.json({ message: 'No submissions found for the given criteria' });
         }
-        
-        const categoriesWithForms = await Promise.all(categories.map(async (category) => {
-            const formsResult = await db.query('SELECT form_id FROM forms WHERE category_id = $1', [category.category_id]);
-            const forms = formsResult.rows;
-            return { ...category, forms };
-        }));
 
-        // Retrieve submission counts by status for each form and category
-        const CountByStatusForUser = await Promise.all(categoriesWithForms.map(async (category) => {
-            const formsWithStatusCounts = await Promise.all(category.forms.map(async (form) => {
-                const statusResult = await db.query('SELECT status, COUNT(*) AS count FROM submissions WHERE form_id = $1 AND requested_by = $2 GROUP BY status', [form.form_id, user_id]);
-                const statusCounts = statusResult.rows;
-                return { ...form, status: statusCounts };
-            }));
+        // Prepare response object
+        const submissionCounts = {};
+        rows.forEach(row => {
+            submissionCounts[row.status] = row.count;
+        });
 
-            return { ...category, forms: formsWithStatusCounts };
-        }));
+        // Return the submission counts as JSON response
+        res.json(submissionCounts);
 
-        res.json(CountByStatusForUser);
     } catch (error) {
         console.error('Error fetching submission counts:', error);
         res.status(500).json({ error: 'Internal Server Error' });
     }
 }
-
-
- 
 
 
 module.exports = {
@@ -1014,5 +1011,5 @@ module.exports = {
     getUserSubmissions,
     getUserSubmissionStatusCounts,
     getSubmissionDetails,
-    getsubmissioncount
+    getSubmissionCount
 }

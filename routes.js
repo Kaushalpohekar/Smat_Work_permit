@@ -39,12 +39,13 @@ router.post('/insertDetails', standard.insertSubmissionDetails);
 router.get('/getAuthorizers/:department_id', standard.getAuthorizersByDepartment);
 router.get('/getSubmissionByInterval/:user_id/:interval', standard.getUserSubmissions);
 router.get('/getSubmissionByIntervalCount/:user_id/:interval', standard.getUserSubmissionStatusCounts);
-router.get('/getSubmissionCount/:form_type/:user_id', standard.getsubmissioncount);
+router.get('/getSubmissionCount/:form_type/:user_id', standard.getSubmissionCount);
 // Authorizer
 router.get('/getSubmissionByIntervalAuthorizer/:category_id/:user_id/:interval', authorizer.getUserSubmissions);
 router.put('/approveSubmission', authorizer.approveSubmission);
 router.put('/rejectSubmission', authorizer.rejectSubmission);
 router.get('/profileDetails/:user_id', authorizer.getUserDetails);
+
 
 
 // Organization Admin - Categories
@@ -66,6 +67,7 @@ router.put('/updatequestion/:question_id', organizationAdmin.updateQuestion);
 router.delete('/deletequestion/:question_id', organizationAdmin.deleteQuestion);
 router.get('/getquestionbyid/:form_id', organizationAdmin.getQuestionByFormId);
 
+
 // Admin
 router.get('/organizationData/:organization_id', admin.organizationByOrganizationId);
 router.get('/plantsData/:organization_id', admin.plantsByOrganizationId);
@@ -78,7 +80,19 @@ router.get('/roles', admin.userRoles);
 
 router.post('/addPlant/:organization_id', admin.addPlantsInOrganization);
 router.post('/addDepartment/:plant_id', admin.addDepartmentInPlants);
+//categories
+router.post('/createCategory/:department_id',organizationAdmin.createCategory);
+router.put('/updateCategory/:category_id',organizationAdmin.updateCategory);
+router.delete('/deleteCategory/:category_id',organizationAdmin.deleteCategory);
+router.get('/getCategory/:category_id',organizationAdmin.getCategoryById);
+router.get('/getAllCategory',organizationAdmin.getAllCategories);
 
+//forms
+router.post('/createForms',organizationAdmin.createForm);
+router.get('/FormById/:form_id',organizationAdmin.getFormById);
+router.get('/getAllForms',organizationAdmin.getAllForms);
+//router.put('/updateForm/:form_id',organizationAdmin.updateform);
+router.delete('/deleteForms/:form_id',organizationAdmin.deleteForm);
 router.put('/updatePlant/:plant_id', admin.updatePlantByPlantId);
 router.put('/updateDepartment/:department_id', admin.updateDepartmentByDepartmentId);
 
