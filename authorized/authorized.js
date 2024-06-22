@@ -120,7 +120,6 @@ async function approveSubmission(req, res) {
     }
 }
 
-
 async function rejectSubmission(req, res) {
     const { rejected_by, password, submission_id } = req.body;
     const queryUser = `SELECT * FROM public.users WHERE user_id = $1`;
@@ -253,11 +252,403 @@ async function getUserDetails(req, res) {
     }
 }
 
+async function getSubmissionCount(req, res) {
+    const { form_type, user_id } = req.params;
 
+    // Validate inputs
+    if (!form_type) {
+        return res.status(400).json({ error: 'form_type is required' });
+    }
+    
+    if (!user_id) {
+        return res.status(400).json({ error: 'user_id is required' });
+    }
+
+    try {
+        // Query to fetch submission counts grouped by status for a user and form type
+        const query = `
+            SELECT s.status, COUNT(*) AS count
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.form_id
+            JOIN categories c ON f.category_id = c.category_id
+            WHERE c.form_type = $1 AND s.authorizer = $2
+            GROUP BY s.status;
+        `;
+
+        // Execute the query with form_type and user_id parameters
+        const { rows } = await db.query(query, [form_type, user_id]);
+
+        if (rows.length === 0) {
+            return res.json({ message: 'No submissions found for the given criteria' });
+        }
+
+        // Prepare response object
+        const submissionCounts = {};
+        rows.forEach(row => {
+            submissionCounts[row.status] = row.count;
+        });
+
+        // Return the submission counts as JSON response
+        res.json(submissionCounts);
+
+    } catch (error) {
+        console.error('Error fetching submission counts:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function getFormTypeBar(req, res) {
+    const { user_id, interval } = req.params;
+
+    let intervalCondition;
+
+    // Determine interval condition based on user input
+    switch (interval) {
+        case '1hour':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 hour'";
+            break;
+        case '1day':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 day'";
+            break;
+        case '1week':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 week'";
+            break;
+        case '1month':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 month'";
+            break;
+        case '6month':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '6 month'";
+            break;
+        case '12month':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 year'";
+            break;
+        default:
+            return res.status(400).json({ error: 'Invalid interval value' });
+    }
+
+    try {
+        const query = `
+            SELECT c.form_type, COUNT(*) AS count
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.form_id
+            JOIN categories c ON f.category_id = c.category_id
+            WHERE s.authorizer = $1
+            ${intervalCondition}
+            AND s.status = 'opened'
+            GROUP BY c.form_type;
+        `;
+
+        const { rows } = await db.query(query, [user_id]);
+
+        const formTypeCounts = {};
+
+        rows.forEach(row => {
+            formTypeCounts[row.form_type] = parseInt(row.count);
+        });
+
+        res.json(formTypeCounts);
+
+    } catch (error) {
+        console.error('Error fetching form type counts:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function getFormTypePercentages(req, res) {
+    const { user_id, interval } = req.params;
+
+    let intervalCondition;
+
+    // Determine interval condition based on user input
+    switch (interval) {
+        case '1hour':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 hour'";
+            break;
+        case '1day':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 day'";
+            break;
+        case '1week':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 week'";
+            break;
+        case '1month':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 month'";
+            break;
+        case '6month':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '6 month'";
+            break;
+        case '12month':
+            intervalCondition = "AND s.created_at >= NOW() - INTERVAL '1 year'";
+            break;
+        default:
+            return res.status(400).json({ error: 'Invalid interval value' });
+    }
+
+    try {
+        const query = `
+            SELECT c.form_type, 
+                   COUNT(*) AS count,
+                   ROUND((COUNT(*) * 100.0) / SUM(COUNT(*)) OVER (), 2) AS percentage
+            FROM submissions s
+            JOIN forms f ON s.form_id = f.form_id
+            JOIN categories c ON f.category_id = c.category_id
+            WHERE s.authorizer = $1
+            ${intervalCondition}
+            GROUP BY c.form_type;
+        `;
+
+        const { rows } = await db.query(query, [user_id]);
+
+        const formTypePercentages = {};
+
+        rows.forEach(row => {
+            formTypePercentages[row.form_type] = {
+                count: parseInt(row.count),
+                percentage: parseFloat(row.percentage)
+            };
+        });
+
+        res.json(formTypePercentages);
+
+    } catch (error) {
+        console.error('Error fetching form type percentages:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function getStatusCounts(req, res) {
+    const { user_id, interval } = req.params;
+
+    let intervalCondition;
+
+    // Determine interval condition based on user input
+    switch (interval) {
+        case '1hour':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+            break;
+        case '1day':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+            break;
+        case '1week':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+            break;
+        case '1month':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+            break;
+        case '6month':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+            break;
+        case '12month':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+            break;
+        default:
+            return res.status(400).json({ error: 'Invalid interval value' });
+    }
+
+    try {
+        const query = `
+            SELECT status, 
+                   COUNT(*) AS count
+            FROM submissions
+            WHERE authorizer = $1
+            ${intervalCondition}
+            GROUP BY status;
+        `;
+
+        const { rows } = await db.query(query, [user_id]);
+
+        const statusCounts = {};
+
+        rows.forEach(row => {
+            statusCounts[row.status] = parseInt(row.count);
+        });
+
+        res.json(statusCounts);
+
+    } catch (error) {
+        console.error('Error fetching status counts:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function getApprovedCounts(req, res) {
+    const { user_id, interval } = req.params;
+
+    let intervalCondition;
+    let timeGrouping;
+
+    // Determine interval condition and time grouping based on user input
+    switch (interval) {
+        case '1hour':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+            timeGrouping = "DATE_TRUNC('hour', created_at)"; // Group by hour
+            break;
+        case '1day':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+            timeGrouping = "DATE_TRUNC('day', created_at)"; // Group by day
+            break;
+        case '1week':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+            timeGrouping = "DATE_TRUNC('week', created_at)"; // Group by week
+            break;
+        case '1month':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+            timeGrouping = "DATE_TRUNC('month', created_at)"; // Group by month
+            break;
+        case '6month':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+            timeGrouping = "DATE_TRUNC('month', created_at)"; // Group by 6 months (monthly)
+            break;
+        case '12month':
+            intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+            timeGrouping = "DATE_TRUNC('year', created_at)"; // Group by year
+            break;
+        default:
+            return res.status(400).json({ error: 'Invalid interval value' });
+    }
+
+    try {
+        const query = `
+            SELECT 
+                ${timeGrouping} AS time_interval,
+                status,
+                COUNT(*) AS count
+            FROM submissions
+            WHERE authorizer = $1
+              AND status IN ('approved', 'rejected')
+              ${intervalCondition}
+            GROUP BY ${timeGrouping}, status
+            ORDER BY ${timeGrouping} DESC;
+        `;
+
+        const { rows } = await db.query(query, [user_id]);
+
+        const timeSeriesData = {};
+
+        // Aggregate counts based on time intervals and status
+        rows.forEach(row => {
+            const timestamp = row.time_interval.toISOString();
+            if (!timeSeriesData[timestamp]) {
+                timeSeriesData[timestamp] = {
+                    time: row.time_interval,
+                    approve: 0,
+                    rejected: 0
+                };
+            }
+            if (row.status === 'approved') {
+                timeSeriesData[timestamp].approve = parseInt(row.count);
+            } else if (row.status === 'rejected') {
+                timeSeriesData[timestamp].rejected = parseInt(row.count);
+            }
+        });
+
+        // Convert object to array for consistent JSON response
+        const timeSeriesArray = Object.values(timeSeriesData);
+
+        res.json(timeSeriesArray);
+
+    } catch (error) {
+        console.error('Error fetching status counts:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function insertOrUpdateSignature(req, res) {
+    const client = await db.connect();
+    try {
+        await client.query('BEGIN');
+
+        const { user_id, sign } = req.body;
+        const { file_name, data } = sign;
+
+        // Validate request data
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            return res.status(400).json({ errors: errors.array() });
+        }
+
+        // Check if user_id exists in the users table
+        const userCheckQuery = 'SELECT 1 FROM public.users WHERE user_id = $1';
+        const userResult = await client.query(userCheckQuery, [user_id]);
+
+        if (userResult.rowCount === 0) {
+            await client.query('ROLLBACK');
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        // Check if user_id exists in the userSignaturePhotos table
+        const signatureCheckQuery = 'SELECT sign_path FROM public.usersignaturephotos WHERE user_id = $1';
+        const signatureResult = await client.query(signatureCheckQuery, [user_id]);
+
+        let oldSignPath = null;
+        if (signatureResult.rowCount > 0) {
+            oldSignPath = signatureResult.rows[0].sign_path;
+        }
+
+        // Save the file to the sign folder
+        const attachmentFileName = `${user_id}_${file_name}`;
+        const attachmentDir = path.join(__dirname, '../sign');
+        const absoluteAttachmentPath = path.join(attachmentDir, attachmentFileName);
+
+        if (!fs.existsSync(attachmentDir)) {
+            fs.mkdirSync(attachmentDir, { recursive: true });
+        }
+
+        const base64Data = data.split(';base64,').pop();
+        const buffer = Buffer.from(base64Data, 'base64');
+        fs.writeFileSync(absoluteAttachmentPath, buffer);
+
+        // Verify if the file size is correct
+        const savedFileSize = fs.statSync(absoluteAttachmentPath).size;
+        if (savedFileSize !== buffer.length) {
+            throw new Error('File size mismatch after writing');
+        }
+
+        const signPath = `sign/${attachmentFileName}`;
+
+        // Delete old signature file if it exists
+        if (oldSignPath) {
+            const oldAbsolutePath = path.join(__dirname, '..', oldSignPath);
+            if (fs.existsSync(oldAbsolutePath)) {
+                fs.unlinkSync(oldAbsolutePath);
+            }
+        }
+
+        // Insert or update the record in the userSignaturePhotos table
+        if (signatureResult.rowCount > 0) {
+            const updateSignatureQuery = `
+                UPDATE public.userSignaturePhotos
+                SET sign_name = $1, sign_path = $2
+                WHERE user_id = $3
+            `;
+            await client.query(updateSignatureQuery, [file_name, signPath, user_id]);
+        } else {
+            const insertSignatureQuery = `
+                INSERT INTO public.userSignaturePhotos (user_id, sign_name, sign_path)
+                VALUES ($1, $2, $3)
+            `;
+            await client.query(insertSignatureQuery, [user_id, file_name, signPath]);
+        }
+
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Signature details inserted/updated successfully' });
+    } catch (error) {
+        await client.query('ROLLBACK');
+        console.error('Error inserting/updating signature details:', error);
+        res.status(500).json({ error: 'Error inserting/updating signature details' });
+    } finally {
+        client.release();
+    }
+}
 
 module.exports = {
 	getUserSubmissions,
     approveSubmission,
     rejectSubmission,
-    getUserDetails
+    getUserDetails,
+    getSubmissionCount,
+    getFormTypeBar,
+    getFormTypePercentages,
+    getStatusCounts,
+    getApprovedCounts,
+    insertOrUpdateSignature
 }

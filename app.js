@@ -9,7 +9,7 @@ const port = 4000;
 app.use(cors());
 
 // Middleware to parse JSON bodies
-app.use(express.json());
+app.use(express.json({ limit: '500mb' }));
 
 // Middleware to parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));

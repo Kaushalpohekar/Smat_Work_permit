@@ -45,7 +45,12 @@ router.get('/getSubmissionByIntervalAuthorizer/:category_id/:user_id/:interval',
 router.put('/approveSubmission', authorizer.approveSubmission);
 router.put('/rejectSubmission', authorizer.rejectSubmission);
 router.get('/profileDetails/:user_id', authorizer.getUserDetails);
-
+router.get('/getSubmissionCountAuth/:form_type/:user_id', authorizer.getSubmissionCount);
+router.get('/getFormTypeBar/:user_id/:interval', authorizer.getFormTypeBar);
+router.get('/getFormTypePercentages/:user_id/:interval', authorizer.getFormTypePercentages);
+router.get('/getStatusCounts/:user_id/:interval', authorizer.getStatusCounts);
+router.get('/getApprovedCounts/:user_id/:interval', authorizer.getApprovedCounts);
+router.post('/signature', authorizer.insertOrUpdateSignature);
 
 
 // Organization Admin - Categories
