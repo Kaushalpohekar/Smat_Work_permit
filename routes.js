@@ -93,4 +93,6 @@ router.put('/updateDepartment/:department_id',admin.updateDepartmentByDepartment
 router.delete('/deletePlant/:plant_id',admin.deletePlantByPlantId);
 router.delete('/deleteDepartment/:department_id',admin.deleteDepartmentByDepartmentId);
 
+router.post('/addForm',admin.addFormData);
+
 module.exports=router;
