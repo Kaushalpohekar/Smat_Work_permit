@@ -1,26 +1,27 @@
 const express = require('express');
 const cors = require('cors');
 const router = require('./routes'); // Ensure this path is correct
-const bodyParser = require('body-parser');
-
 
 const app = express();
 const port = 4000;
 
+// Middleware to enable CORS
 app.use(cors());
-app.use(express.json()); // Middleware to parse JSON bodies
-app.use(bodyParser.json());
 
-app.use(bodyParser.urlencoded({ extended: true }));
+// Middleware to parse JSON bodies
+app.use(express.json({ limit: '500mb' }));
+
+// Middleware to parse URL-encoded bodies
+app.use(express.urlencoded({ extended: true }));
 
 // Use the router for handling routes
 app.use(router);
 
+// Default route
 app.get('/', (req, res) => {
-  console.log('get request!!')
+  console.log('GET request received!');
   res.send('Server is running');
 });
-
 
 // Start the server
 app.listen(port, () => {

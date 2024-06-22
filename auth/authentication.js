@@ -441,6 +441,54 @@ async function updateProfilePicture(req, res) {
     }
 }
 
+
+async function getProfilePicture(req, res) {
+    const user_id = req.params.user_id;
+
+    try {
+        // Ensure required parameters are provided
+        if (!user_id) {
+            return res.status(400).json({ error: 'User ID is required' });
+        }
+
+        const query = `SELECT photo_path, photo_name as profile_name FROM userprofilepictures WHERE user_id = $1`;
+
+        const result = await db.query(query, [user_id]);
+
+        if (result.rows.length === 0) {
+            // No profile photo found, return null
+            return res.status(200).json({ profile_photo: null });
+        }
+
+        const row = result.rows[0];
+
+        // Read profile photo and convert to base64 if available
+        if (row.photo_path !== null) {
+            try {
+                const fileBuffer = fs.readFileSync(row.photo_path);
+                const base64File = fileBuffer.toString('base64');
+                const mimeType = mime.lookup(row.profile_name);
+                const profile_photo = `data:${mimeType || 'application/octet-stream'};base64,${base64File}`;
+                
+                // Return the profile photo
+                return res.status(200).json({ profile_photo });
+            } catch (err) {
+                console.error('Error reading profile photo:', err);
+                return res.status(500).json({ error: 'Error reading profile photo' });
+            }
+        } else {
+            // Profile photo path is null, return null
+            return res.status(200).json({ profile_photo: null });
+        }
+    } catch (err) {
+        console.error('Error fetching user profile photo:', err);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+}
+
+
+
+
 module.exports={
   forgotPassword,
   resendResetToken,
@@ -450,11 +498,8 @@ module.exports={
   getUserDetails,
   block,
   getAllTokens,
-
-  ///new created on  10 jun 2024
   updateUser,
   updateEmail,
   updateProfilePicture,
-
-
+  getProfilePicture
 };
