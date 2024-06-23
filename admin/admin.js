@@ -122,20 +122,6 @@ async function previousFormsByCategories(req, res) {
     }
 }
 
-async function userRoles(req, res) {
-    const query = `SELECT * FROM roles`;
-    try {
-        const result = await db.query(query);
-        if (result.rows.length === 0) {
-            return res.status(404).json({ error: 'Roles not found' });
-        }
-        res.status(200).json(result.rows);
-    } catch (err) {
-        console.error('Error fetching data:', err);
-        res.status(500).json({ error: 'Internal server error' });
-    }
-}
-
 async function addPlantsInOrganization(req, res) {
     const { organization_id } = req.params;
     const { name, location } = req.body;
@@ -213,6 +199,85 @@ async function updatePlantByPlantId(req, res) {
         return res.status(200).json(updatedPlant);
     } catch (error) {
         console.error('Error updating plant:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function addFormData(req, res) {
+  const { form_name, form_description, created_by, category_id, plant_id, Questions } = req.body;
+
+  const form_id = uuidv4();
+  const created_at = new Date().toISOString();
+
+  const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    // Insert into forms table
+    const queryForm = `
+      INSERT INTO forms (form_id, form_name, form_description, created_by, category_id, plant_id, created_at)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
+      RETURNING form_id`;
+    const valuesForm = [form_id, form_name, form_description, created_by, category_id, plant_id, created_at];
+
+    const resultForm = await client.query(queryForm, valuesForm);
+    const newFormId = resultForm.rows[0].form_id;
+
+    // Insert into questions table
+    for (const question of Questions) {
+      const question_id = uuidv4();
+      const { Question, QuestionType } = question;
+      const created_at_question = new Date().toISOString();
+
+      const queryQuestion = `
+        INSERT INTO questions (question_id, question_text, question_type, form_id, created_at)
+        VALUES ($1, $2, $3, $4, $5)`;
+      const valuesQuestion = [question_id, Question, QuestionType, newFormId, created_at_question];
+
+      await client.query(queryQuestion, valuesQuestion);
+
+      // Insert into options table if Option exists
+      if (question.Option) {
+        const options = question.Option.split(',').map(option => option.trim());
+        for (const option of options) {
+          const option_id = uuidv4();
+          const created_at_option = new Date().toISOString();
+
+          const queryOption = `
+            INSERT INTO options (option_id, option_text, question_id, created_at)
+            VALUES ($1, $2, $3, $4)`;
+          const valuesOption = [option_id, option, question_id, created_at_option];
+
+          await client.query(queryOption, valuesOption);
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    res.status(201).json({ form_id: newFormId });
+  } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error adding form data:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  } finally {
+    client.release();
+  }
+}
+
+async function userRoles(req, res) {
+    const query = `SELECT * FROM roles WHERE name != 'SuperAdmin';`;
+    try {
+        const data = await db.query(query);
+        const newdata = data.rows;
+
+        if (!newdata) {
+            return res.status(404).json({ error: 'Data not found' });
+        }
+
+        return res.status(200).json(newdata);
+    } catch (error) {
+        console.error('Error getting Data:', error);
         return res.status(500).json({ error: 'Internal Server Error' });
     }
 }
@@ -303,5 +368,5 @@ module.exports = {
     deletePlantByPlantId,
     deleteDepartmentByDepartmentId,
     userRoles,
-    
+    addFormData    
 }

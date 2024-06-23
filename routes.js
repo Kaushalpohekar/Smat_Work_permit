@@ -105,4 +105,25 @@ router.put('/updateDepartment/:department_id', admin.updateDepartmentByDepartmen
 router.delete('/deletePlant/:plant_id', admin.deletePlantByPlantId);
 router.delete('/deleteDepartment/:department_id', admin.deleteDepartmentByDepartmentId);
 
-module.exports = router;
+//admin
+router.get('/organizationData/:organization_id',admin.organizationByOrganizationId);
+router.get('/plantsData/:organization_id',admin.plantsByOrganizationId);
+router.get('/departmentsData/:plant_id',admin.departmentsByPlantId);
+router.get('/usersDataByDepartments/:department_id',admin.userByDepartmentId);
+router.get('/usersDataByOrganization/:organization_id',admin.usersByOrganizationId);
+router.get('/categoriesData/:department_id',admin.CategoriesByDepartmentId);
+router.get('/prevForms/:category_id',admin.previousFormsByCategories);
+router.get('/roles',admin.userRoles);
+
+router.post('/addPlant/:organization_id',admin.addPlantsInOrganization);
+router.post('/addDepartment/:plant_id',admin.addDepartmentInPlants);
+
+router.put('/updatePlant/:plant_id',admin.updatePlantByPlantId);
+router.put('/updateDepartment/:department_id',admin.updateDepartmentByDepartmentId);
+
+router.delete('/deletePlant/:plant_id',admin.deletePlantByPlantId);
+router.delete('/deleteDepartment/:department_id',admin.deleteDepartmentByDepartmentId);
+
+router.post('/addForm',admin.addFormData);
+
+module.exports=router;
