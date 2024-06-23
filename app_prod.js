@@ -30,7 +30,7 @@ app.get('/swp/test', (req, res) => {
 
 const httpsServer = https.createServer(credentials, app);
 
-httpsServer.listen(3000, () => {
+httpsServer.listen(port, () => {
   console.log(`HTTPS server listening on port ${port}`);
 });
 
