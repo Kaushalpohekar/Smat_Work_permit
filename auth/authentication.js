@@ -7,6 +7,7 @@ const path = require('path');
 const ejs = require('ejs');
 const { v4: uuidv4 } = require('uuid');
 const { error } = require('console');
+const mime = require('mime-types');
 
 
 
@@ -348,96 +349,170 @@ async function getAllTokens(req, res) {
 }
 
 
-async function updateUser(req,res){
-const user_id =req.params.user_id;
-const {first_name,last_name,department_id}=req.body;
-const updatequery=`UPDATE public.users
-SET first_name = $1,
-    last_name = $2,
-    department_id = $3
-WHERE user_id = $4
-`;
-db.query(updatequery,[first_name,last_name,department_id,user_id],(error,result)=>{
-    if(error){
-        console.error("error updateing user details");
-        return res.status(500).json({message:'Errror changeing user details'});
+async function updateUser(req, res) {
+  const user_id = req.params.user_id;
+  const { first_name, last_name, designation } = req.body;
+
+  const checkUserExistsQuery = 'SELECT 1 FROM public.users WHERE user_id = $1';
+  const updateQuery = `
+    UPDATE public.users
+    SET first_name = $1,
+        last_name = $2
+    WHERE user_id = $3
+  `;
+
+  try {
+    // Check if user exists
+    const checkUserResult = await db.query(checkUserExistsQuery, [user_id]);
+    if (checkUserResult.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
-    if(result.rowCount === 0){
-        return res.staus(404).json({message:'Iser not found'});
+
+    // Update user details
+    const updateResult = await db.query(updateQuery, [first_name, last_name, user_id]);
+    if (updateResult.rowCount === 0) {
+      return res.status(404).json({ message: 'Error updating user details' });
     }
-    else{
-        return res.status(404).json({message:'User details updated successfully'});
-    }
-})
+
+    return res.status(200).json({ message: 'User details updated successfully' });
+  } catch (error) {
+    console.error('Error updating user details:', error);
+    return res.status(500).json({ message: 'Error changing user details' });
+  }
 }
 
-async  function updateEmail(req,res){
-const user_id=req.parms.user_id;
-const {company_email,personal_email,contact_no}=req.body;
-const query=`UPDATE public.users 
-SET company_email=$1,
-personal_email=$2,
-contact_no=$3
-WHERE user_id=$4`;
-db.query(query,[user_id,company_email,personal_email,contact_no],(error,result)=>{
-    if(error){
-        console.error('Error updating User details');
-        return res.status(500).json({message:'Error updating user'});
-    }
-    if(result.rowCount === 0){
-        return res.status(500).json({message:'User does not exist'});
+async function updateEmail(req, res) {
+  const user_id = req.params.user_id;
+  const { company_email, personal_email, contact_no } = req.body;
 
+  const checkUserExistsQuery = 'SELECT 1 FROM public.users WHERE user_id = $1';
+  const updateQuery = `
+    UPDATE public.users 
+    SET company_email = $1,
+        personal_email = $2,
+        contact_no = $3
+    WHERE user_id = $4
+  `;
+
+  try {
+    // Check if user exists
+    const checkUserResult = await db.query(checkUserExistsQuery, [user_id]);
+    if (checkUserResult.rowCount === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
-    else{
-        return res.status(404).json({message:'User details updated successfully'});
+
+    // Update user email details
+    const updateResult = await db.query(updateQuery, [company_email, personal_email, contact_no, user_id]);
+    if (updateResult.rowCount === 0) {
+      return res.status(500).json({ message: 'Error updating user details' });
     }
-})
+
+    return res.status(200).json({ message: 'User details updated successfully' });
+  } catch (error) {
+    console.error('Error updating user details:', error);
+    return res.status(500).json({ message: 'Error updating user' });
+  }
 }
 
+async function updatePassword(req, res) {
+  const { user_id } = req.params;
+  const { currentPassword, newPassword } = req.body;
 
-async function updateProfilePicture(req, res) {
-    const user_id = req.params.user_id;
-    const file = req.file;
+  try {
+    // Step 1: Check if user exists
+    const checkUserQuery = `SELECT * FROM public.users WHERE user_id = $1`;
+    const userResult = await db.query(checkUserQuery, [user_id]);
 
-    if (!file) {
-        return res.status(400).json({ message: 'No file uploaded' });
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ message: 'User not found' });
     }
 
-    const checkUserQuery = 'SELECT * FROM public.users WHERE user_id = $1';
+    const user = userResult.rows[0];
+
+    // Step 2: Verify current password
+    const isPasswordValid = await bcrypt.compare(currentPassword, user.password_hash);
+
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Current password is incorrect' });
+    }
+
+    // Step 3: Update the password
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10); // Hash the new password
+    const updateQuery = `UPDATE public.users SET password_hash = $1 WHERE user_id = $2`;
+    await db.query(updateQuery, [hashedNewPassword, user_id]);
+
+    // Step 4: Respond with success message
+    res.status(200).json({ message: 'Password updated successfully' });
+
+  } catch (error) {
+    console.error('Error updating password:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function insertOrUpdateUserProfilePhoto(req, res) {
+    const client = await db.connect();
     try {
-        const userResult = await db.query(checkUserQuery, [user_id]);
-        if (userResult.rows.length === 0) {
-            return res.status(404).json({ message: 'User does not exist' });
+        await client.query('BEGIN');
+
+        const { user_id, profileImage } = req.body;
+        const { name, data } = profileImage;
+
+        if (!user_id || !profileImage) {
+            return res.status(400).json({ errors: 'Invalid Payload' });
         }
 
-        const checkPictureQuery = 'SELECT * FROM public.profile_pictures WHERE user_id = $1';
-        const pictureResult = await db.query(checkPictureQuery, [user_id]);
+        // Check if user_id exists in the users table (assuming it's already validated in your middleware)
 
-        let query;
-        let params;
+        // Check if user_id exists in the userprofilepictures table
+        const userProfilePhotoCheckQuery = 'SELECT 1 FROM public.userprofilepictures WHERE user_id = $1';
+        const userProfilePhotoResult = await client.query(userProfilePhotoCheckQuery, [user_id]);
 
-        if (pictureResult.rows.length > 0) {
-            query = `
-                UPDATE public.profile_pictures 
-                SET picture = $1, created_at = CURRENT_TIMESTAMP
-                WHERE user_id = $2
+        // Save the file to the profile folder
+        const attachmentFileName = `${user_id}_${name}`;
+        const attachmentDir = path.join(__dirname, '../profile');
+        const absoluteAttachmentPath = path.join(attachmentDir, attachmentFileName);
+
+        if (!fs.existsSync(attachmentDir)) {
+            fs.mkdirSync(attachmentDir, { recursive: true });
+        }
+
+        const base64Data = data.split(';base64,').pop();
+        const buffer = Buffer.from(base64Data, 'base64');
+        fs.writeFileSync(absoluteAttachmentPath, buffer);
+
+        // Verify if the file size is correct
+        const savedFileSize = fs.statSync(absoluteAttachmentPath).size;
+        if (savedFileSize !== buffer.length) {
+            throw new Error('File size mismatch after writing');
+        }
+
+        const photoPath = `profile/${attachmentFileName}`;
+
+        // Insert or update the record in the userprofilepictures table
+        if (userProfilePhotoResult.rowCount > 0) {
+            const updatePhotoQuery = `
+                UPDATE public.userprofilepictures
+                SET photo_name = $1, photo_path = $2
+                WHERE user_id = $3
             `;
-            params = [file.buffer, user_id];
+            await client.query(updatePhotoQuery, [name, photoPath, user_id]);
         } else {
-            query = `
-                INSERT INTO public.profile_pictures (picture_id, user_id, picture, created_at)
-                VALUES (uuid_generate_v4(), $1, $2, CURRENT_TIMESTAMP)
+            const insertPhotoQuery = `
+                INSERT INTO public.userprofilepictures (user_id, photo_name, photo_path)
+                VALUES ($1, $2, $3)
             `;
-            params = [user_id, file.buffer];
+            await client.query(insertPhotoQuery, [user_id, name, photoPath]);
         }
 
-        const result = await db.query(query, params);
-
-        return res.status(200).json({ message: 'Profile picture updated successfully' });
-
+        await client.query('COMMIT');
+        res.status(201).json({ message: 'Profile photo inserted/updated successfully' });
     } catch (error) {
-        console.error('Error updating profile picture:', error);
-        return res.status(500).json({ message: 'Error updating profile picture' });
+        await client.query('ROLLBACK');
+        console.error('Error inserting/updating profile photo:', error);
+        res.status(500).json({ error: 'Error inserting/updating profile photo' });
+    } finally {
+        client.release();
     }
 }
 
@@ -500,6 +575,7 @@ module.exports={
   getAllTokens,
   updateUser,
   updateEmail,
-  updateProfilePicture,
+  updatePassword,
+  insertOrUpdateUserProfilePhoto,
   getProfilePicture
 };

@@ -217,9 +217,9 @@ async function getUserDetails(req, res) {
             };
 
             // Read profile picture and convert to base64 if available
-            if (row.profile_path !== null) {
+            if (row.photo_path !== null) {
                 try {
-                    const fileBuffer = fs.readFileSync(row.profile_path);
+                    const fileBuffer = fs.readFileSync(row.photo_path);
                     const base64File = fileBuffer.toString('base64');
                     const mimeType = mime.lookup(row.profile_name);
                     submission.profile.profile_photo = `data:${mimeType || 'application/octet-stream'};base64,${base64File}`;
@@ -576,13 +576,8 @@ async function insertOrUpdateSignature(req, res) {
         }
 
         // Check if user_id exists in the userSignaturePhotos table
-        const signatureCheckQuery = 'SELECT sign_path FROM public.usersignaturephotos WHERE user_id = $1';
+        const signatureCheckQuery = 'SELECT 1 FROM public.usersignaturephotos WHERE user_id = $1';
         const signatureResult = await client.query(signatureCheckQuery, [user_id]);
-
-        let oldSignPath = null;
-        if (signatureResult.rowCount > 0) {
-            oldSignPath = signatureResult.rows[0].sign_path;
-        }
 
         // Save the file to the sign folder
         const attachmentFileName = `${user_id}_${file_name}`;
@@ -604,14 +599,6 @@ async function insertOrUpdateSignature(req, res) {
         }
 
         const signPath = `sign/${attachmentFileName}`;
-
-        // Delete old signature file if it exists
-        if (oldSignPath) {
-            const oldAbsolutePath = path.join(__dirname, '..', oldSignPath);
-            if (fs.existsSync(oldAbsolutePath)) {
-                fs.unlinkSync(oldAbsolutePath);
-            }
-        }
 
         // Insert or update the record in the userSignaturePhotos table
         if (signatureResult.rowCount > 0) {
