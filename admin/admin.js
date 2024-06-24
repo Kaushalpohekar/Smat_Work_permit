@@ -1,5 +1,6 @@
 const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
+const bcrypt = require('bcrypt');
 
 function sanitizeInput(input) {
     return input.replace(/[^\w\s.-]/gi, '');
@@ -178,6 +179,28 @@ async function addDepartmentInPlants(req, res) {
     }
 }
 
+async function addCategory(req, res) {
+    const { department_id } = req.params;
+    const { name, icon, form_type, subtitle } = req.body;
+    const category_id = uuidv4();
+    const created_at = new Date().toISOString();  // Current date and time in ISO 8601 format
+    
+    const query = `
+        INSERT INTO categories (category_id, created_at, department_id, name, icon, form_type, subtitle) 
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING category_id`;
+
+    try {
+        const result = await db.query(query, [category_id, created_at, department_id, name, icon, form_type, subtitle]);
+        const newCategoryId = result.rows[0].category_id;
+
+        return res.status(201).json({ category_id: newCategoryId });
+    } catch (error) {
+        console.error('Error adding Category:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
 async function updatePlantByPlantId(req, res) {
     const { plant_id } = req.params;
     const { name, location } = req.body;
@@ -330,6 +353,29 @@ async function deletePlantByPlantId(req, res) {
     }
 }
 
+async function deleteUser(req, res) {
+    const { user_id } = req.params;
+
+    const queryDelete = `
+        DELETE FROM users 
+        WHERE user_id = $1 
+        RETURNING user_id`;
+
+    try {
+        const resultDelete = await db.query(queryDelete, [user_id]);
+        const deletedUser = resultDelete.rows[0];
+
+        if (!deletedUser) {
+            return res.status(404).json({ error: 'user not found' });
+        }
+
+        return res.status(200).json({ message: 'User deleted successfully', User_id: deletedUser.user_id });
+    } catch (error) {
+        console.error('Error deleting user:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
 async function deleteDepartmentByDepartmentId(req, res) {
     const { department_id } = req.params;
 
@@ -353,6 +399,107 @@ async function deleteDepartmentByDepartmentId(req, res) {
     }
 }
 
+async function addUser(req, res) {
+    const { personal_email, first_name, last_name, role_id, department_id, contact_no, password } = req.body;
+
+    if (!personal_email || !first_name || !last_name || !role_id || !department_id || !contact_no || !password) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const user_id = uuidv4();
+    const created_at = new Date().toISOString();
+    const verified = false;
+    const block = false;
+    const username = personal_email;
+
+    try {
+        const password_hash = await bcrypt.hash(password, 10);
+
+        // Query to find plant_id using department_id
+        const queryDepartment = `
+            SELECT plant_id FROM departments WHERE department_id = $1`;
+        const resultDepartment = await db.query(queryDepartment, [department_id]);
+
+        if (resultDepartment.rows.length === 0) {
+            return res.status(404).json({ error: 'Department not found' });
+        }
+
+        const plant_id = resultDepartment.rows[0].plant_id;
+
+        // Query to find organization_id using plant_id
+        const queryPlant = `
+            SELECT organization_id FROM plants WHERE plant_id = $1`;
+        const resultPlant = await db.query(queryPlant, [plant_id]);
+
+        if (resultPlant.rows.length === 0) {
+            return res.status(404).json({ error: 'Plant not found' });
+        }
+
+        const organization_id = resultPlant.rows[0].organization_id;
+        const company_email = personal_email; // Assuming company_email is the same as personal_email
+
+        // Insertion query for users table
+        const queryInsert = `
+            INSERT INTO users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no) 
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+            RETURNING user_id`;
+
+        const values = [user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no];
+
+        const resultInsert = await db.query(queryInsert, values);
+        const newUser = resultInsert.rows[0];
+
+        if (!newUser) {
+            return res.status(500).json({ error: 'User could not be added' });
+        }
+
+        return res.status(201).json(newUser);
+    } catch (error) {
+        console.error('Error adding user:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
+async function updateUser(req, res) {
+    const { user_id } = req.params; // Extract user_id from URL parameters
+    const { personal_email, first_name, last_name, role_id, department_id, contact_no,password } = req.body;
+
+    if (!user_id || !personal_email || !first_name || !last_name || !role_id || !department_id || !contact_no) {
+        return res.status(400).json({ error: 'All fields are required' });
+    }
+
+    const username = personal_email;
+
+    try {
+        // Update query for users table
+        const queryUpdate = `
+            UPDATE users
+            SET username = $2,
+                personal_email = $3,
+                first_name = $4,
+                last_name = $5,
+                role_id = $6,
+                department_id = $7,
+                contact_no = $8
+            WHERE user_id = $1
+            RETURNING user_id`;
+
+        const values = [user_id, username, personal_email, first_name, last_name, role_id, department_id, contact_no];
+
+        const resultUpdate = await db.query(queryUpdate, values);
+        const updatedUser = resultUpdate.rows[0];
+
+        if (!updatedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        return res.status(200).json(updatedUser);
+    } catch (error) {
+        console.error('Error updating user:', error);
+        return res.status(500).json({ error: 'Internal Server Error' });
+    }
+}
+
 module.exports = {
     organizationByOrganizationId,
     plantsByOrganizationId,
@@ -368,5 +515,9 @@ module.exports = {
     deletePlantByPlantId,
     deleteDepartmentByDepartmentId,
     userRoles,
-    addFormData    
+    addFormData,
+    addUser,
+    updateUser,
+    addCategory,
+    deleteUser
 }

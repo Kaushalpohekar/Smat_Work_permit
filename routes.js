@@ -116,11 +116,15 @@ router.get('/roles',admin.userRoles);
 
 router.post('/addPlant/:organization_id',admin.addPlantsInOrganization);
 router.post('/addDepartment/:plant_id',admin.addDepartmentInPlants);
+router.post('/addUser',admin.addUser);
+router.post('/addCategory/:department_id',admin.addCategory);
 
 router.put('/updatePlant/:plant_id',admin.updatePlantByPlantId);
 router.put('/updateDepartment/:department_id',admin.updateDepartmentByDepartmentId);
+router.put('/updateUser/:user_id',admin.updateUser);
 
 router.delete('/deletePlant/:plant_id',admin.deletePlantByPlantId);
+router.delete('/deleteUser/:user_id',admin.deleteUser);
 router.delete('/deleteDepartment/:department_id',admin.deleteDepartmentByDepartmentId);
 
 router.post('/addForm',admin.addFormData);
