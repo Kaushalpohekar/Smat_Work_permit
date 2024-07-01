@@ -103,6 +103,7 @@ router.get('/usersDataByDepartments/:department_id',admin.userByDepartmentId);
 router.get('/usersDataByOrganization/:organization_id',admin.usersByOrganizationId);
 router.get('/categoriesData/:department_id',admin.CategoriesByDepartmentId);
 router.get('/prevForms/:category_id',admin.previousFormsByCategories);
+router.get('/formData/:form_id',admin.FormByFormId);
 router.get('/roles',admin.userRoles);
 
 router.post('/addPlant/:organization_id',admin.addPlantsInOrganization);
@@ -115,6 +116,7 @@ router.put('/updateDepartment/:department_id',admin.updateDepartmentByDepartment
 router.put('/updateUser/:user_id',admin.updateUser);
 
 router.delete('/deletePlant/:plant_id',admin.deletePlantByPlantId);
+router.delete('/deleteForm/:form_id',admin.deleteFormByFormId);
 router.delete('/deleteUser/:user_id',admin.deleteUser);
 router.delete('/deleteDepartment/:department_id',admin.deleteDepartmentByDepartmentId);
 

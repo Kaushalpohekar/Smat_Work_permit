@@ -21,6 +21,53 @@ async function organizationByOrganizationId(req, res) {
     }
 }
 
+async function FormByFormId(req, res) {
+    const { form_id } = req.params;
+
+    const client = await db.connect();
+
+    try {
+        const queryForm = `
+        SELECT *
+        FROM forms WHERE form_id = $1`;
+        const valuesForm = [form_id];
+        const resultForm = await client.query(queryForm, valuesForm);
+
+        if (resultForm.rows.length === 0) {
+        return res.status(404).json({ error: 'Form not found' });
+        }
+
+        const form = resultForm.rows[0];
+
+        const queryQuestions = `
+        SELECT *
+        FROM questions WHERE form_id = $1`;
+        const valuesQuestions = [form_id];
+        const resultQuestions = await client.query(queryQuestions, valuesQuestions);
+
+        const questions = resultQuestions.rows;
+
+        for (const question of questions) {
+        const queryOptions = `
+            SELECT *
+            FROM options WHERE question_id = $1`;
+        const valuesOptions = [question.question_id];
+        const resultOptions = await client.query(queryOptions, valuesOptions);
+
+        question.options = resultOptions.rows;
+        }
+
+        form.questions = questions;
+
+        res.status(200).json(form);
+    } catch (error) {
+        console.error('Error fetching form data:', error);
+        res.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+        client.release();
+    }
+}
+
 async function plantsByOrganizationId(req, res) {
     const { organization_id } = req.params;
     const query = `SELECT * FROM plants WHERE organization_id = $1`;
@@ -57,7 +104,6 @@ async function departmentsByPlantId(req, res) {
         res.status(500).json({ error: 'Internal server error' });
     }
 }
-
 
 async function userByDepartmentId(req, res) {
     const { department_id } = req.params;
@@ -193,7 +239,7 @@ async function addCategory(req, res) {
     try {
         const result = await db.query(query, [category_id, created_at, department_id, name, icon, form_type, subtitle]);
         const newCategoryId = result.rows[0].category_id;
-
+        
         return res.status(201).json({ category_id: newCategoryId });
     } catch (error) {
         console.error('Error adding Category:', error);
@@ -353,6 +399,44 @@ async function deletePlantByPlantId(req, res) {
     }
 }
 
+async function deleteFormByFormId(req, res) {
+    const { form_id } = req.params;
+
+    const client = await db.connect();
+
+  try {
+    await client.query('BEGIN');
+
+    const deleteOptionsQuery = `
+      DELETE FROM options
+      WHERE question_id IN (
+        SELECT question_id
+        FROM questions
+        WHERE form_id = $1
+      )`;
+    await client.query(deleteOptionsQuery, [form_id]);
+
+    const deleteQuestionsQuery = `
+      DELETE FROM questions
+      WHERE form_id = $1`;
+    await client.query(deleteQuestionsQuery, [form_id]);
+
+    const deleteFormQuery = `
+      DELETE FROM forms
+      WHERE form_id = $1`;
+    await client.query(deleteFormQuery, [form_id]);
+
+    await client.query('COMMIT');
+    res.status(200).json({ message: 'Form deleted successfully' });
+    } catch (error) {
+    await client.query('ROLLBACK');
+    console.error('Error deleting form:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+    } finally {
+    client.release();
+    }
+}
+
 async function deleteUser(req, res) {
     const { user_id } = req.params;
 
@@ -502,6 +586,7 @@ async function updateUser(req, res) {
 
 module.exports = {
     organizationByOrganizationId,
+    FormByFormId,
     plantsByOrganizationId,
     departmentsByPlantId,
     userByDepartmentId,
@@ -513,6 +598,7 @@ module.exports = {
     updatePlantByPlantId,
     updateDepartmentByDepartmentId,
     deletePlantByPlantId,
+    deleteFormByFormId,
     deleteDepartmentByDepartmentId,
     userRoles,
     addFormData,
