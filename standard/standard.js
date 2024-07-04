@@ -79,7 +79,7 @@ async function getQuestions(req, res) {
 
     try {
         const query = `
-            SELECT q.question_id, q.question_text, q.question_type, o.option_id, o.option_text
+            SELECT q.question_id, q.question_text, q.question_type, q.created_at, o.option_id, o.option_text
             FROM public.questions q
             LEFT JOIN public.options o ON q.question_id = o.question_id
             WHERE q.form_id = $1
@@ -94,7 +94,7 @@ async function getQuestions(req, res) {
         }
 
         const questions = data.reduce((acc, row) => {
-            const { question_id, question_text, question_type, option_id, option_text } = row;
+            const { question_id, question_text, question_type, created_at, option_id, option_text } = row;
             let question = acc.find(q => q.question_id === question_id);
 
             if (!question) {
@@ -102,6 +102,7 @@ async function getQuestions(req, res) {
                     question_id,
                     question_text,
                     question_type,
+                    sort: created_at,
                     options: []
                 };
                 acc.push(question);
@@ -419,8 +420,8 @@ async function insertSubmissionDetails(req, res) {
         }
         
         for (const question of questions) {
-            const insertAnswerQuery = `INSERT INTO public.answers (submission_id, question_id, answer_text) VALUES ($1, $2, $3)`;
-            await client.query(insertAnswerQuery, [submissionId, question.question_id, question.answer]);
+            const insertAnswerQuery = `INSERT INTO public.answers (submission_id, question_id, answer_text, remark) VALUES ($1, $2, $3, $4)`;
+            await client.query(insertAnswerQuery, [submissionId, question.question_id, question.answer, question.remarks]);
 
             if (question.attachment && question.attachment.data) {
                 console.log(question.attachment.data);
@@ -692,7 +693,8 @@ async function getSubmissionDetails(req, res) {
             SELECT
                 question_id,
                 question_text,
-                question_type
+                question_type,
+                created_at
             FROM
                 public.questions
             WHERE
@@ -707,7 +709,8 @@ async function getSubmissionDetails(req, res) {
                 q.question_id,
                 q.question_text,
                 q.question_type,
-                a.answer_text
+                a.answer_text,
+                a.remark
             FROM
                 public.questions q
             LEFT JOIN
@@ -793,7 +796,9 @@ async function getSubmissionDetails(req, res) {
                 questionId: question.question_id,
                 questionText: question.question_text,
                 questionType: question.question_type,
-                answer: answers.find(answer => answer.question_id === question.question_id)?.answer_text || ''
+                sort: question.created_at,
+                answer: answers.find(answer => answer.question_id === question.question_id)?.answer_text || '',
+                remark: answers.find(answer => answer.question_id === question.question_id)?.remark || ''
             }))
         };
 
