@@ -9,6 +9,12 @@ const authorizer = require('./authorized/authorized.js');
 const admin = require('./admin/admin.js');
 const organizationAdmin = require('./dashboard/organization.js');
 
+const ceat = require('./ceat/ceat.js');
+//ceat ROUTES
+router.post('/ceatInsertData', ceat.insertData);
+router.get('/getAllSubmissions', ceat.getAllSubmissions); 
+router.get('/getSubmissionById/:submissionId', ceat.getSubmissionById);
+
 // Authentication
 router.post('/forgot', auth.forgotPassword);
 router.get('/profilePicture/:user_id', auth.getProfilePicture);
