@@ -1,5 +1,9 @@
 const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
+const nodemailer = require('nodemailer');
+const path = require('path');
+const ejs = require('ejs');
+const fs = require('fs');
 
 async function insertData(req, res) {
     const { data } = req.body;
@@ -8,7 +12,7 @@ async function insertData(req, res) {
         qaAuditor: data.qaAuditor,
         auditorName: data.auditorName,
         qaShiftInCharge: data.qaShiftInCharge,
-        operationsShiftInCharge: data.operationsShiftInCharge 
+        operationsShiftInCharge: data.operationsShiftInCharge
     }
 
     const client = await db.connect();
@@ -23,6 +27,8 @@ async function insertData(req, res) {
         await client.query(InsertDataQuery, [submission_id, data, status]);
 
         await client.query('COMMIT');
+        fetchEmailAddressesAndSendMails(Object.values(status), data);
+
         res.status(201).json({ message: 'Data inserted successfully', submission_id });
 
     } catch (error) {
@@ -245,7 +251,76 @@ async function rejectStatus(req, res) {
     }
 }
 
+async function fetchEmailAddressesAndSendMails(userIds, data) {
+    const client = await db.connect();
 
+    try {
+        const selectEmailsQuery = `
+            SELECT personal_email FROM users WHERE user_id = ANY($1::uuid[]);
+        `;
+        const result = await client.query(selectEmailsQuery, [userIds]);
+
+        const emails = result.rows.map(row => row.personal_email);
+
+        // Call function to send emails
+        sendMailForApprovalRequest(emails, data);
+
+    } catch (error) {
+        console.error('Error fetching email addresses:', error);
+    } finally {
+        client.release();
+    }
+}
+
+
+function sendMailForApprovalRequest(emails, data) {
+    const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+            user: 'donotreplysenselive@gmail.com',
+            pass: 'xgcklimtlbswtzfq',
+        }
+    });
+
+    const templatePath = path.join(__dirname, '../mails/request.ejs');
+    fs.readFile(templatePath, 'utf8', (err, templateData) => {
+        if (err) {
+            console.error('Error reading email template:', err);
+            return;
+        }
+
+        const compiledTemplate = ejs.compile(templateData);
+        const html = compiledTemplate({ device: data });
+
+        const mailOptions = {
+            from: 'donotreplysenselive@gmail.com',
+            to: emails.join(', '),
+            subject: 'Request for Approval of Checklist',
+            html: html,
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) {
+                console.error('Error sending email:', error);
+            } else {
+                console.log('Email sent:', info.response);
+            }
+        });
+    });
+}
+
+
+const emails = ['example1@gmail.com', 'example2@gmail.com'];
+const data = {
+    qaAuditor: 'John Doe',
+    auditorName: 'Jane Smith',
+    qaShiftInCharge: 'Jim Brown',
+    operationsShiftInCharge: 'Jack Black'
+};
+
+sendMailForApprovalRequest(emails, data);
 
 module.exports = {
     insertData,
