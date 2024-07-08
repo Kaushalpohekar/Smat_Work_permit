@@ -319,18 +319,6 @@ function sendMailForApprovalRequest(emails, data) {
     });
 }
 
-
-const emails = ['kaushalpohekar1@gmail.com', 'kaushalpohekar85@gmail.com', 'kpohekar19@gmail.com'];
-const data = {
-    formName: "QUALITY ASSURANCE PROCESS AUDIT CHECK-SHEET - BUILDING",
-    process: "building",
-    shift: "Shift A",
-    date: "2024-07-20",
-    associateName: "Kaushal"
-};
-
-sendMailForApprovalRequest(emails, data);
-
 module.exports = {
     insertData,
     getAllSubmissions,
