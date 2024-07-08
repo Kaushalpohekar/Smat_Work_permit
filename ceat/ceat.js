@@ -312,7 +312,7 @@ function sendMailForApprovalRequest(emails, data) {
 }
 
 
-const emails = ['example1@gmail.com', 'example2@gmail.com'];
+const emails = ['kaushalpohekar1@gmail.com.com', 'example2@gmail.com'];
 const data = {
     qaAuditor: 'John Doe',
     auditorName: 'Jane Smith',
