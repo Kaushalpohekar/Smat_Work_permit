@@ -14,6 +14,10 @@ const ceat = require('./ceat/ceat.js');
 router.post('/ceatInsertData', ceat.insertData);
 router.get('/getAllSubmissions', ceat.getAllSubmissions); 
 router.get('/getSubmissionById/:submissionId', ceat.getSubmissionById);
+router.get('/getAllSubmissionsByUser/:user_id', ceat.getAllSubmissionsByUser);
+router.get('/getUserName/:user_id', ceat.getUserName);
+router.put('/approveStatus/:submissionId/user_id=:userId', ceat.approveStatus);
+router.put('/rejectStatus/:submissionId/user_id=:userId', ceat.rejectStatus);
 
 // Authentication
 router.post('/forgot', auth.forgotPassword);
