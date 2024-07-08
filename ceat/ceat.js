@@ -15,6 +15,14 @@ async function insertData(req, res) {
         operationsShiftInCharge: data.operationsShiftInCharge
     }
 
+    const dataForMail = {
+        formName: "QUALITY ASSURANCE PROCESS AUDIT CHECK-SHEET - BUILDING",
+        process: data.process,
+        shift: data.shift,
+        date: data.date,
+        associateName: data.associateName
+    };
+
     const client = await db.connect();
 
     try {
@@ -27,7 +35,7 @@ async function insertData(req, res) {
         await client.query(InsertDataQuery, [submission_id, data, status]);
 
         await client.query('COMMIT');
-        fetchEmailAddressesAndSendMails(Object.values(status), data);
+        fetchEmailAddressesAndSendMails(Object.values(status), dataForMail);
 
         res.status(201).json({ message: 'Data inserted successfully', submission_id });
 
@@ -312,12 +320,13 @@ function sendMailForApprovalRequest(emails, data) {
 }
 
 
-const emails = ['kaushalpohekar1@gmail.com.com', 'example2@gmail.com'];
+const emails = ['kaushalpohekar1@gmail.com', 'kaushalpohekar85@gmail.com', 'kpohekar19@gmail.com'];
 const data = {
-    qaAuditor: 'John Doe',
-    auditorName: 'Jane Smith',
-    qaShiftInCharge: 'Jim Brown',
-    operationsShiftInCharge: 'Jack Black'
+    formName: "QUALITY ASSURANCE PROCESS AUDIT CHECK-SHEET - BUILDING",
+    process: "building",
+    shift: "Shift A",
+    date: "2024-07-20",
+    associateName: "Kaushal"
 };
 
 sendMailForApprovalRequest(emails, data);
