@@ -300,7 +300,7 @@ function sendMailForApprovalRequest(emails, data) {
         }
 
         const compiledTemplate = ejs.compile(templateData);
-        const html = compiledTemplate({ device: data });
+        const html = compiledTemplate({ data: data });
 
         const mailOptions = {
             from: 'donotreplysenselive@gmail.com',
