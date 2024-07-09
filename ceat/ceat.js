@@ -185,7 +185,7 @@ async function approveStatus(req, res) {
 
         if (!updated) {
             await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'User ID not found in submission status' });
+            return res.status(404).json({ message: 'Action Already Taken!' });
         }
 
         // Update status in database
@@ -239,7 +239,7 @@ async function rejectStatus(req, res) {
 
         if (!updated) {
             await client.query('ROLLBACK');
-            return res.status(404).json({ message: 'User ID not found in submission status' });
+            return res.status(404).json({ message: 'Action Already Taken!' });
         }
 
         // Update status in database
@@ -258,6 +258,7 @@ async function rejectStatus(req, res) {
         client.release();
     }
 }
+
 
 async function fetchEmailAddressesAndSendMails(userIds, data) {
     const client = await db.connect();
