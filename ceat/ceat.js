@@ -70,6 +70,41 @@ async function getAllSubmissions(req, res) {
     }
 }
 
+// async function getAllSubmissionsByUser(req, res) {
+//     const client = await db.connect();
+//     const userId = req.params.user_id;  // Assume req.dna.user_id contains the user_id
+
+//     try {
+//         const query = 'SELECT submission_id, submission_data FROM audit_submissions;';
+//         const result = await client.query(query);
+
+//         if (result.rows.length === 0) {
+//             res.status(404).json({ message: 'No submissions found' });
+//             return;
+//         }
+
+//         // Filter submissions to find ones containing the user_id
+//         const filteredSubmissions = result.rows.filter(row => {
+//             const submissionData = row.submission_data;
+//             if (submissionData && typeof submissionData === 'object') {
+//                 return Object.values(submissionData).some(value => value === userId);
+//             }
+//             return false;
+//         });
+
+//         if (filteredSubmissions.length === 0) {
+//             res.status(404).json({ message: 'No submissions found for the user' });
+//         } else {
+//             res.status(200).json(filteredSubmissions);
+//         }
+
+//     } catch (error) {
+//         console.error('Error fetching submissions:', error);
+//         res.status(500).json({ message: 'Internal server error' });
+//     } finally {
+//         client.release();
+//     }
+// }
 async function getAllSubmissionsByUser(req, res) {
     const client = await db.connect();
     const userId = req.params.user_id;  // Assume req.dna.user_id contains the user_id
@@ -95,7 +130,20 @@ async function getAllSubmissionsByUser(req, res) {
         if (filteredSubmissions.length === 0) {
             res.status(404).json({ message: 'No submissions found for the user' });
         } else {
-            res.status(200).json(filteredSubmissions);
+            // Extract specific fields from the submission_data
+            const extractedData = filteredSubmissions.map(row => {
+                const submissionData = row.submission_data;
+                return {
+                    submission_id: row.submission_id,
+                    process: submissionData.process,
+                    date: submissionData.date,
+                    time: submissionData.time,
+                    shift: submissionData.shift,
+                    associate: submissionData.associate
+                };
+            });
+
+            res.status(200).json(extractedData);
         }
 
     } catch (error) {
@@ -105,6 +153,8 @@ async function getAllSubmissionsByUser(req, res) {
         client.release();
     }
 }
+
+
 
 
 async function getSubmissionById(req, res) {
