@@ -12,8 +12,10 @@ const organizationAdmin = require('./dashboard/organization.js');
 const ceat = require('./ceat/ceat.js');
 //ceat ROUTES
 router.post('/ceatInsertData', ceat.insertData);
+router.post('/ceatInsertDataBct', ceat.insertDataBct);
 router.get('/getAllSubmissions', ceat.getAllSubmissions); 
 router.get('/getSubmissionById/:submissionId', ceat.getSubmissionById);
+router.get('/getSubmissionByIdBct/:submissionId', ceat.getSubmissionByIdBct);
 router.get('/getAllSubmissionsByUser/:user_id', ceat.getAllSubmissionsByUser);
 router.get('/getUserName/:user_id', ceat.getUserName);
 router.put('/approveStatus/:submissionId/:userId', ceat.approveStatus);

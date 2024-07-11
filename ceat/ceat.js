@@ -49,6 +49,48 @@ async function insertData(req, res) {
     }
 }
 
+async function insertDataBct(req, res) {
+    try {
+        const { data } = req.body;
+        console.log('Request Body:', req.body); // Log the entire request body
+
+        const submission_id = uuidv4();
+        const status = {
+            checkTyreMadeBy: data.checkTyreMadeBy
+        }
+
+        const client = await db.connect();
+
+        try {
+            await client.query('BEGIN');
+
+            const InsertDataQuery = `
+                INSERT INTO bct_submissions (submission_id, submission_data, status)
+                VALUES ($1, $2, $3);
+            `;
+            await client.query(InsertDataQuery, [submission_id, data, status]);
+
+            await client.query('COMMIT');
+            //fetchEmailAddressesAndSendMails(Object.values(status), dataForMail);
+
+            res.status(201).json({ message: 'Data inserted successfully', submission_id });
+
+        } catch (error) {
+            await client.query('ROLLBACK');
+            console.error('Error during data insertion:', error);
+            res.status(500).json({ message: 'Internal server error' });
+
+        } finally {
+            client.release();
+        }
+
+    } catch (error) {
+        console.error('Error in insertDataBct:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    }
+}
+
+
 async function getAllSubmissions(req, res) {
     const client = await db.connect();
 
@@ -70,41 +112,6 @@ async function getAllSubmissions(req, res) {
     }
 }
 
-// async function getAllSubmissionsByUser(req, res) {
-//     const client = await db.connect();
-//     const userId = req.params.user_id;  // Assume req.dna.user_id contains the user_id
-
-//     try {
-//         const query = 'SELECT submission_id, submission_data FROM audit_submissions;';
-//         const result = await client.query(query);
-
-//         if (result.rows.length === 0) {
-//             res.status(404).json({ message: 'No submissions found' });
-//             return;
-//         }
-
-//         // Filter submissions to find ones containing the user_id
-//         const filteredSubmissions = result.rows.filter(row => {
-//             const submissionData = row.submission_data;
-//             if (submissionData && typeof submissionData === 'object') {
-//                 return Object.values(submissionData).some(value => value === userId);
-//             }
-//             return false;
-//         });
-
-//         if (filteredSubmissions.length === 0) {
-//             res.status(404).json({ message: 'No submissions found for the user' });
-//         } else {
-//             res.status(200).json(filteredSubmissions);
-//         }
-
-//     } catch (error) {
-//         console.error('Error fetching submissions:', error);
-//         res.status(500).json({ message: 'Internal server error' });
-//     } finally {
-//         client.release();
-//     }
-// }
 async function getAllSubmissionsByUser(req, res) {
     const client = await db.connect();
     const userId = req.params.user_id;  // Assume req.dna.user_id contains the user_id
@@ -154,9 +161,6 @@ async function getAllSubmissionsByUser(req, res) {
     }
 }
 
-
-
-
 async function getSubmissionById(req, res) {
     const submission_id = req.params.submissionId;
     const client = await db.connect();
@@ -177,6 +181,380 @@ async function getSubmissionById(req, res) {
     } finally {
         client.release();
     }
+}
+
+async function getSubmissionByIdBct(req, res) {
+    const submission_id = req.params.submissionId;
+    const client = await db.connect();
+
+    try {
+        const query = 'SELECT * FROM bct_submissions WHERE submission_id = $1;';
+        const result = await client.query(query, [submission_id]);
+
+        if (result.rows.length === 0) {
+            res.status(404).json({ message: 'Submission not found' });
+        } else {
+            const formData = result.rows[0];
+            const formattedData = modifyFormData(formData);
+            res.status(200).json(formattedData);
+        }
+
+    } catch (error) {
+        console.error('Error fetching submission:', error);
+        res.status(500).json({ message: 'Internal server error' });
+    } finally {
+        client.release();
+    }
+}
+
+function modifyFormData(formData) {
+    const data = [
+        {
+          formatNo: formData.submission_data.formatNo,
+          date: formData.submission_data.date,
+          checkTyreMadeBy: formData.submission_data.checkTyreMadeBy,
+          size: formData.submission_data.size,
+          barcode: formData.submission_data.barcode,
+          reasonForCheckTyre: formData.submission_data.reasonForCheckTyre,
+          startTime: formData.submission_data.startTime,
+          endTime: formData.submission_data.endTime,
+          AvgBalancingValue: formData.submission_data.AvgBalancingValue,
+          StandardDeviation: formData.submission_data.StandardDeviation,
+          Comments: formData.submission_data.Comments,
+          status: formData.status.checkTyreMadeBy
+        },
+        {
+          serial: 1,
+          parameter: [
+            {
+              value: 'IL centering',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.ILCenteringPosL_spec,
+                  1: formData.submission_data.ILCenteringPosL_1,
+                  2: formData.submission_data.ILCenteringPosL_2,
+                  3: formData.submission_data.ILCenteringPosL_3,
+                  Avg: formData.submission_data.ILCenteringPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.ILCenteringPosR_spec,
+                  1: formData.submission_data.ILCenteringPosR_1,
+                  2: formData.submission_data.ILCenteringPosR_2,
+                  3: formData.submission_data.ILCenteringPosR_3,
+                  Avg: formData.submission_data.ILCenteringPosR_avg
+                }
+              ]
+            },
+            {
+              value: 'IL width',
+              position: [
+                {
+                  value: '',
+                  specification: formData.submission_data.ILWidth_spec,
+                  1: formData.submission_data.ILWidth_1,
+                  2: formData.submission_data.ILWidth_2,
+                  3: formData.submission_data.ILWidth_3,
+                  Avg: formData.submission_data.ILWidth_avg
+                }
+              ]
+            }
+          ]
+        },
+        {
+          serial: 2,
+          parameter: [
+            {
+              value: 'Ply 1 / Cushion ply centering',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.Ply1CushionplycenteringPosL_spec,
+                  1: formData.submission_data.Ply1CushionplycenteringPosL_1,
+                  2: formData.submission_data.Ply1CushionplycenteringPosL_2,
+                  3: formData.submission_data.Ply1CushionplycenteringPosL_3,
+                  Avg: formData.submission_data.Ply1CushionplycenteringPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.Ply1CushionplycenteringPosR_spec,
+                  1: formData.submission_data.Ply1CushionplycenteringPosR_1,
+                  2: formData.submission_data.Ply1CushionplycenteringPosR_2,
+                  3: formData.submission_data.Ply1CushionplycenteringPosR_3,
+                  Avg: formData.submission_data.Ply1CushionplycenteringPosR_avg
+                }
+              ]
+            },
+            {
+              value: 'Ply-1/Cushion Width',
+              position: [
+                {
+                  value: '',
+                  specification: formData.submission_data.Ply1CushionWidth_spec,
+                  1: formData.submission_data.Ply1CushionWidth_1,
+                  2: formData.submission_data.Ply1CushionWidth_2,
+                  3: formData.submission_data.Ply1CushionWidth_3,
+                  Avg: formData.submission_data.Ply1CushionWidth_avg
+                }
+              ]
+            }
+          ]
+        },
+        {
+          serial: 3,
+          parameter: [{ value: 'Ply 1 angle', specification: formData.submission_data.Ply1Angle_spec, Avg: formData.submission_data.Ply1Angle_avg }]
+        },
+        {
+          serial: 4,
+          parameter: [
+            {
+              value: 'Ply-2 centering',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.Ply2CenteringPosL_spec,
+                  1: formData.submission_data.Ply2CenteringPosL_1,
+                  2: formData.submission_data.Ply2CenteringPosL_2,
+                  3: formData.submission_data.Ply2CenteringPosL_3,
+                  Avg: formData.submission_data.Ply2CenteringPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.Ply2CenteringPosR_spec,
+                  1: formData.submission_data.Ply2CenteringPosR_1,
+                  2: formData.submission_data.Ply2CenteringPosR_2,
+                  3: formData.submission_data.Ply2CenteringPosR_3,
+                  Avg: formData.submission_data.Ply2CenteringPosR_avg
+                }
+              ]
+            },
+            {
+              value: 'Ply-2 width',
+              position: [
+                {
+                  value: '',
+                  specification: formData.submission_data.Ply2Width_spec,
+                  1: formData.submission_data.Ply2Width_1,
+                  2: formData.submission_data.Ply2Width_2,
+                  3: formData.submission_data.Ply2Width_3,
+                  Avg: formData.submission_data.Ply2Width_avg
+                }
+              ]
+            }
+          ]
+        },
+        {
+          serial: 5,
+          parameter: [{ value: 'Ply 2 angle', specification: formData.submission_data.Ply2Angle_spec, Avg: formData.submission_data.Ply2Angle_avg }]
+        },
+        {
+          serial: 6,
+          parameter: [
+            {
+              value: 'Ply-3/Breaker centering',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.Ply3BreakerCenteringPosL_spec,
+                  1: formData.submission_data.Ply3BreakerCenteringPosL_1,
+                  2: formData.submission_data.Ply3BreakerCenteringPosL_2,
+                  3: formData.submission_data.Ply3BreakerCenteringPosL_3,
+                  Avg: formData.submission_data.Ply3BreakerCenteringPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.Ply3BreakerCenteringPosR_spec,
+                  1: formData.submission_data.Ply3BreakerCenteringPosR_1,
+                  2: formData.submission_data.Ply3BreakerCenteringPosR_2,
+                  3: formData.submission_data.Ply3BreakerCenteringPosR_3,
+                  Avg: formData.submission_data.Ply3BreakerCenteringPosR_avg
+                }
+              ]
+            },
+            {
+              value: 'Ply-3/Breaker width',
+              position: [
+                {
+                  value: '',
+                  specification: formData.submission_data.Ply3BreakerWidth_spec,
+                  1: formData.submission_data.Ply3BreakerWidth_1,
+                  2: formData.submission_data.Ply3BreakerWidth_2,
+                  3: formData.submission_data.Ply3BreakerWidth_3,
+                  Avg: formData.submission_data.Ply3BreakerWidth_avg
+                }
+              ]
+            },
+            { value: 'Ply 3/Breaker 1 angle', specification: formData.submission_data.Ply3BreakerAngle_spec, Avg: formData.submission_data.Ply3BreakerAngle_avg }
+          ]
+        },
+        {
+          serial: 7,
+          parameter: [
+            {
+              value: 'Ply-4 centering',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.Ply4CenteringPosL_spec,
+                  1: formData.submission_data.Ply4CenteringPosL_1,
+                  2: formData.submission_data.Ply4CenteringPosL_2,
+                  3: formData.submission_data.Ply4CenteringPosL_3,
+                  Avg: formData.submission_data.Ply4CenteringPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.Ply4CenteringPosR_spec,
+                  1: formData.submission_data.Ply4CenteringPosR_1,
+                  2: formData.submission_data.Ply4CenteringPosR_2,
+                  3: formData.submission_data.Ply4CenteringPosR_3,
+                  Avg: formData.submission_data.Ply4CenteringPosR_avg
+                }
+              ]
+            },
+            {
+              value: 'Ply-4 width',
+              position: [
+                {
+                  value: '',
+                  specification: formData.submission_data.Ply4Width_spec,
+                  1: formData.submission_data.Ply4Width_1,
+                  2: formData.submission_data.Ply4Width_2,
+                  3: formData.submission_data.Ply4Width_3,
+                  Avg: formData.submission_data.Ply4Width_avg
+                }
+              ]
+            }
+          ]
+        },
+        {
+          serial: 8,
+          parameter: [{ value: 'Ply 4/Breaker 2 angle', specification: formData.submission_data.Ply4Breaker2Angle_spec, Avg: formData.submission_data.Ply4Breaker2Angle_avg }]
+        },
+        {
+          serial: 9,
+          parameter: [
+            { value: 'ComponentSpotting_IL', 1: formData.submission_data.ComponentSpotting_IL },
+            { value: 'ComponentSpotting_P1', 1: formData.submission_data.ComponentSpotting_P1 },
+            { value: 'ComponentSpotting_P2', 1: formData.submission_data.ComponentSpotting_P2 },
+            { value: 'ComponentSpotting_P3Breaker', 1: formData.submission_data.ComponentSpotting_P3Breaker },
+            { value: 'ComponentSpotting_P4', 1: formData.submission_data.ComponentSpotting_P4 },
+            { value: 'ComponentSpotting_TR', 1: formData.submission_data.ComponentSpotting_TR }
+          ]
+        },
+        {
+          serial: 10,
+          parameter: [
+            {
+              value: 'Ply-1 turn up',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.Ply1TurnUpPosL_spec,
+                  1: formData.submission_data.Ply1TurnUpPosL_1,
+                  2: formData.submission_data.Ply1TurnUpPosL_2,
+                  3: formData.submission_data.Ply1TurnUpPosL_3,
+                  Avg: formData.submission_data.Ply1TurnUpPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.Ply1TurnUpPosR_spec,
+                  1: formData.submission_data.Ply1TurnUpPosR_1,
+                  2: formData.submission_data.Ply1TurnUpPosR_2,
+                  3: formData.submission_data.Ply1TurnUpPosR_3,
+                  Avg: formData.submission_data.Ply1TurnUpPosR_avg
+                }
+              ]
+            }
+          ]
+        },
+        {
+          serial: 11,
+          parameter: [
+            {
+              value: 'Tread centering',
+              position: [
+                {
+                  value: 'L',
+                  specification: formData.submission_data.TreadCenteringPosL_spec,
+                  1: formData.submission_data.TreadCenteringPosL_1,
+                  2: formData.submission_data.TreadCenteringPosL_2,
+                  3: formData.submission_data.TreadCenteringPosL_3,
+                  Avg: formData.submission_data.TreadCenteringPosL_avg
+                },
+                {
+                  value: 'R',
+                  specification: formData.submission_data.TreadCenteringPosR_spec,
+                  1: formData.submission_data.TreadCenteringPosR_1,
+                  2: formData.submission_data.TreadCenteringPosR_2,
+                  3: formData.submission_data.TreadCenteringPosR_3,
+                  Avg: formData.submission_data.TreadCenteringPosR_avg
+                }
+              ]
+            },
+            {
+              value: 'Tread width',
+              position: [
+                {
+                  value: '',
+                  specification: formData.submission_data.TreadWidth_spec,
+                  1: formData.submission_data.TreadWidth_1,
+                  2: formData.submission_data.TreadWidth_2,
+                  3: formData.submission_data.TreadWidth_3,
+                  Avg: formData.submission_data.TreadWidth_avg
+                }
+              ]
+            }
+          ]
+        },
+        {
+          serial: 12,
+          parameter: [
+            {
+              value: 'TreadProfile Dist',
+              1: formData.submission_data.TreadProfile_Dist_spec,
+              2: formData.submission_data.TreadProfile_Dist_1,
+              3: formData.submission_data.TreadProfile_Dist_2,
+              Avg: formData.submission_data.TreadProfile_Dist_avg
+            },
+            {
+              value: 'TreadProfile Spec',
+              1: formData.submission_data.TreadProfile_Spec_spec,
+              2: formData.submission_data.TreadProfile_Spec_1,
+              3: formData.submission_data.TreadProfile_Spec_2,
+              Avg: formData.submission_data.TreadProfile_Spec_avg
+            },
+            {
+              value: 'TreadProfile Op',
+              1: formData.submission_data.TreadProfile_Op_spec,
+              2: formData.submission_data.TreadProfile_Op_1,
+              3: formData.submission_data.TreadProfile_Op_2,
+              Avg: formData.submission_data.TreadProfile_Op_avg
+            },
+            {
+              value: 'TreadProfile NOP',
+              1: formData.submission_data.TreadProfile_NOP_spec,
+              2: formData.submission_data.TreadProfile_NOP_1,
+              3: formData.submission_data.TreadProfile_NOP_2,
+              Avg: formData.submission_data.TreadProfile_NOP_avg
+            }
+          ]
+        },
+        {
+          value: 'Balancing',
+          1: formData.submission_data.Balancing_1,
+          2: formData.submission_data.Balancing_2,
+          3: formData.submission_data.Balancing_3,
+          4: formData.submission_data.Balancing_4,
+          5: formData.submission_data.Balancing_5,
+          6: formData.submission_data.Balancing_6,
+          7: formData.submission_data.Balancing_7,
+          8: formData.submission_data.Balancing_8,
+          9: formData.submission_data.Balancing_9,
+          10: formData.submission_data.Balancing_10
+        }
+      ];
+    return data;
 }
 
 async function getUserName(req, res) {
@@ -377,5 +755,7 @@ module.exports = {
     getAllSubmissionsByUser,
     getUserName,
     approveStatus,
-    rejectStatus
+    rejectStatus,
+    insertDataBct,
+    getSubmissionByIdBct
 };
