@@ -7,7 +7,7 @@ const fs = require('fs');
 const bcrypt = require('bcrypt');
 
 async function insertData(req, res) {
-    const { data } = req.body;
+    const { user_id, data } = req.body;
     const submission_id = uuidv4();
     const status = {
         qaAuditor: data.qaAuditor,
@@ -30,10 +30,10 @@ async function insertData(req, res) {
         await client.query('BEGIN');
 
         const InsertDataQuery = `
-            INSERT INTO audit_submissions (submission_id, submission_data, status)
-            VALUES ($1, $2, $3);
+            INSERT INTO audit_submissions (submission_id, submission_data, status, submitted_by)
+            VALUES ($1, $2, $3, $4);
         `;
-        await client.query(InsertDataQuery, [submission_id, data, status]);
+        await client.query(InsertDataQuery, [submission_id, data, status, user_id]);
 
         await client.query('COMMIT');
         fetchEmailAddressesAndSendMails(Object.values(status), dataForMail);
@@ -52,7 +52,7 @@ async function insertData(req, res) {
 
 async function insertDataBct(req, res) {
     try {
-        const { data } = req.body;
+        const { user_id, data } = req.body;
         console.log('Request Body:', req.body); // Log the entire request body
 
         const submission_id = uuidv4();
@@ -66,10 +66,10 @@ async function insertDataBct(req, res) {
             await client.query('BEGIN');
 
             const InsertDataQuery = `
-                INSERT INTO bct_submissions (submission_id, submission_data, status)
-                VALUES ($1, $2, $3);
+                INSERT INTO bct_submissions (submission_id, submission_data, status, submitted_by)
+                VALUES ($1, $2, $3, $4);
             `;
-            await client.query(InsertDataQuery, [submission_id, data, status]);
+            await client.query(InsertDataQuery, [submission_id, data, status, user_id]);
 
             await client.query('COMMIT');
             //fetchEmailAddressesAndSendMails(Object.values(status), dataForMail);
