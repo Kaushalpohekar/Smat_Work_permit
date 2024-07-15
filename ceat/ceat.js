@@ -4,9 +4,10 @@ const nodemailer = require('nodemailer');
 const path = require('path');
 const ejs = require('ejs');
 const fs = require('fs');
+const bcrypt = require('bcrypt');
 
 async function insertData(req, res) {
-    const { data } = req.body;
+    const { user_id, data } = req.body;
     const submission_id = uuidv4();
     const status = {
         qaAuditor: data.qaAuditor,
@@ -29,10 +30,10 @@ async function insertData(req, res) {
         await client.query('BEGIN');
 
         const InsertDataQuery = `
-            INSERT INTO audit_submissions (submission_id, submission_data, status)
-            VALUES ($1, $2, $3);
+            INSERT INTO audit_submissions (submission_id, submission_data, status, submitted_by)
+            VALUES ($1, $2, $3, $4);
         `;
-        await client.query(InsertDataQuery, [submission_id, data, status]);
+        await client.query(InsertDataQuery, [submission_id, data, status, user_id]);
 
         await client.query('COMMIT');
         fetchEmailAddressesAndSendMails(Object.values(status), dataForMail);
@@ -51,7 +52,7 @@ async function insertData(req, res) {
 
 async function insertDataBct(req, res) {
     try {
-        const { data } = req.body;
+        const { user_id, data } = req.body;
         console.log('Request Body:', req.body); // Log the entire request body
 
         const submission_id = uuidv4();
@@ -65,10 +66,10 @@ async function insertDataBct(req, res) {
             await client.query('BEGIN');
 
             const InsertDataQuery = `
-                INSERT INTO bct_submissions (submission_id, submission_data, status)
-                VALUES ($1, $2, $3);
+                INSERT INTO bct_submissions (submission_id, submission_data, status, submitted_by)
+                VALUES ($1, $2, $3, $4);
             `;
-            await client.query(InsertDataQuery, [submission_id, data, status]);
+            await client.query(InsertDataQuery, [submission_id, data, status, user_id]);
 
             await client.query('COMMIT');
             //fetchEmailAddressesAndSendMails(Object.values(status), dataForMail);
@@ -770,6 +771,362 @@ function sendMailForApprovalRequest(emails, data) {
     });
 }
 
+async function approveSubmissionCeat(req, res) {
+  const { userId, password } = req.body;
+
+  if (!userId || !password) {
+      return res.status(400).json({ message: 'User ID, password are required.' });
+  }
+
+  const queryUser = `SELECT * FROM public.users WHERE user_id = $1`;
+
+  try {
+      const userResult = await db.query(queryUser, [userId]);
+
+      if (userResult.rows.length === 0) {
+          return res.status(404).json({ message: 'User does not exist!' });
+      }
+
+      const user = userResult.rows[0];
+      const isPasswordValid = await bcrypt.compare(password, user.password_hash);
+
+      if (!isPasswordValid) {
+          return res.status(401).json({ message: 'Password does not match' });
+      }
+
+      res.status(200).json({ message: 'Password matched successfully!' });
+
+  } catch (error) {
+      console.error('Error during submission approval:', error);
+
+      if (error.code === '23503') {
+          return res.status(404).json({ message: 'User or submission not found!' });
+      }
+
+      res.status(500).json({ message: 'Internal server error' });
+  }
+}
+
+async function UserSubmissionsBoth(req, res) {
+  const client = await db.connect();
+  const userId = req.params.user_id;  // Assume req.dna.user_id contains the user_id
+
+  try {
+      const query = 'SELECT submission_id, submission_data FROM audit_submissions where submitted_by = $1;';
+      const result = await client.query(query, [userId]);
+
+      if (result.rows.length === 0) {
+          res.status(404).json({ message: 'No submissions found' });
+          return;
+      }
+
+
+          // Extract specific fields from the submission_data
+          const extractedData = filteredSubmissions.map(row => {
+              const submissionData = row.submission_data;
+              return {
+                  submission_id: row.submission_id,
+                  process: submissionData.process,
+                  date: submissionData.date,
+                  time: submissionData.time,
+                  shift: submissionData.shift,
+                  associate: submissionData.associate
+              };
+          });
+
+  } catch (error) {
+      console.error('Error fetching submissions:', error);
+      res.status(500).json({ message: 'Internal server error' });
+  } finally {
+      client.release();
+  }
+}
+
+// async function getUserSubmissionsCeat(req, res) {
+//   const user_id = req.params.user_id;
+//   const interval = req.params.interval;
+
+//   try {
+//       // Ensure user_id and interval are provided
+//       if (!user_id || !interval) {
+//           return res.status(400).json({ error: 'User ID and interval are required' });
+//       }
+
+//       let intervalCondition = '';
+//       let intervalValue = '';
+
+//       switch (interval) {
+//           case '1hour':
+//               intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+//               intervalValue = 'Hour';
+//               break;
+//           case '1day':
+//               intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+//               intervalValue = 'Day';
+//               break;
+//           case '1week':
+//               intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+//               intervalValue = 'Week';
+//               break;
+//           case '1month':
+//               intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+//               intervalValue = 'Month';
+//               break;
+//           case '6month':
+//               intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+//               intervalValue = 'Half Year';
+//               break;
+//           case '12month':
+//               intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+//               intervalValue = 'Full Year';
+//               break;
+//           default:
+//               return res.status(400).json({ error: 'Invalid interval value' });
+//       }
+
+//       const userFormQuery = `
+//           SELECT submission_id, submission_data, status, created_at From audit_submissions
+//           WHERE submitted_by = $1 ${intervalCondition} 
+//           ORDER BY created_at DESC`;
+
+//       const result = await db.query(userFormQuery, [user_id]);
+
+//       if (result.rows.length === 0) {
+//           return res.status(404).json({ error: 'No Submissions available for the specified request' });
+//       }
+
+//       const submissionsWithDetails = result.rows.map(row => {
+//           const submissionData = row.submission_data;
+//           const statusData = row.status;
+
+//           // Extract required fields from submission_data
+//           const { date, time, shift, process, associateName } = submissionData;
+
+//           // Initialize status to 'rejected' by default
+//           let overallStatus = 'rejected';
+
+//           // Check if all authorizers are approved
+//           const authorizers = ['qaAuditor', 'auditorName', 'qaShiftInCharge', 'operationsShiftInCharge'];
+//           const approvedCount = authorizers.filter(key => statusData[key] === 'approved').length;
+
+//           if (approvedCount === authorizers.length) {
+//               overallStatus = 'approved';
+//           } else if (statusData['qaAuditor'] === 'rejected' || statusData['auditorName'] === 'rejected' ||
+//               statusData['qaShiftInCharge'] === 'rejected' || statusData['operationsShiftInCharge'] === 'rejected') {
+//               overallStatus = 'rejected';
+//           } else {
+//               // Default to 'opened' if any authorizer has not approved
+//               overallStatus = 'opened';
+//           }
+
+//           return {
+//               submission_id: row.submission_id,
+//               date,
+//               time,
+//               shift,
+//               process,
+//               associateName,
+//               overallStatus
+//           };
+//       });
+
+//       res.status(200).json(submissionsWithDetails);
+
+//   } catch (err) {
+//       console.error('Error fetching user submissions:', err);
+//       res.status(500).json({ error: 'Internal server error' });
+//   }
+// }
+async function getUserSubmissionsCeat(req, res) {
+  const user_id = req.params.user_id;
+  const interval = req.params.interval;
+
+  try {
+      // Ensure user_id and interval are provided
+      if (!user_id || !interval) {
+          return res.status(400).json({ error: 'User ID and interval are required' });
+      }
+
+      let intervalCondition = '';
+      let intervalValue = '';
+
+      switch (interval) {
+          case '1hour':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+              intervalValue = 'Hour';
+              break;
+          case '1day':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+              intervalValue = 'Day';
+              break;
+          case '1week':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+              intervalValue = 'Week';
+              break;
+          case '1month':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+              intervalValue = 'Month';
+              break;
+          case '6month':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+              intervalValue = 'Half Year';
+              break;
+          case '12month':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+              intervalValue = 'Full Year';
+              break;
+          default:
+              return res.status(400).json({ error: 'Invalid interval value' });
+      }
+
+      const userFormQuery = `
+          SELECT submission_id, submission_data, status, created_at 
+          FROM audit_submissions
+          WHERE submitted_by = $1 ${intervalCondition} 
+          ORDER BY created_at DESC`;
+
+      const result = await db.query(userFormQuery, [user_id]);
+
+      if (result.rows.length === 0) {
+          return res.status(404).json({ error: 'No Submissions available for the specified request' });
+      }
+
+      const submissionsWithDetails = await Promise.all(result.rows.map(async (row) => {
+          const submissionData = row.submission_data;
+          const statusData = row.status;
+
+          // Extract required fields from submission_data
+          const { date, time, shift, process, associateName } = submissionData;
+
+          // Initialize status to 'rejected' by default
+          let overallStatus = 'rejected';
+
+          // Check if all authorizers are approved
+          const authorizers = ['qaAuditor', 'auditorName', 'qaShiftInCharge', 'operationsShiftInCharge'];
+          const approvedCount = authorizers.filter(key => statusData[key] === 'approved').length;
+
+          if (approvedCount === authorizers.length) {
+              overallStatus = 'approved';
+          } else if (statusData['qaAuditor'] === 'rejected' || statusData['auditorName'] === 'rejected' ||
+              statusData['qaShiftInCharge'] === 'rejected' || statusData['operationsShiftInCharge'] === 'rejected') {
+              overallStatus = 'rejected';
+          } else {
+              // Default to 'opened' if any authorizer has not approved
+              overallStatus = 'opened';
+          }
+
+          // Fetch first name and last name for each authorizer
+          const authorizerDetails = {};
+          await Promise.all(authorizers.map(async (key) => {
+              const uuid = submissionData[key];
+              const userQuery = `
+                  SELECT first_name, last_name 
+                  FROM users 
+                  WHERE user_id = $1`;
+
+              const userResult = await db.query(userQuery, [uuid]);
+              if (userResult.rows.length > 0) {
+                  const { first_name, last_name } = userResult.rows[0];
+                  authorizerDetails[key] = `${first_name} ${last_name}`;
+              } else {
+                  authorizerDetails[key] = 'Unknown User'; // Default if user not found
+              }
+          }));
+
+          return {
+              submission_id: row.submission_id,
+              date,
+              time,
+              shift,
+              process,
+              associateName,
+              overallStatus,
+              authorizers: authorizerDetails // Now each key contains the concatenated first_name last_name string
+          };
+      }));
+
+      res.status(200).json(submissionsWithDetails);
+
+  } catch (err) {
+      console.error('Error fetching user submissions:', err);
+      res.status(500).json({ error: 'Internal server error' });
+  }
+}
+
+
+
+
+async function getUserSubmissionStatusCeatCounts(req, res) {
+  const user_id = req.params.user_id;
+  const interval = req.params.interval;
+
+  try {
+      // Ensure user_id and interval are provided
+      if (!user_id || !interval) {
+          return res.status(400).json({ error: 'User ID and interval are required' });
+      }
+
+      let intervalCondition = '';
+
+      switch (interval) {
+          case '1hour':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 hour'";
+              break;
+          case '1day':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 day'";
+              break;
+          case '1week':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 week'";
+              break;
+          case '1month':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 month'";
+              break;
+          case '6month':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '6 month'";
+              break;
+          case '12month':
+              intervalCondition = "AND created_at >= NOW() - INTERVAL '1 year'";
+              break;
+          default:
+              return res.status(400).json({ error: 'Invalid interval value' });
+      }
+
+      // Query to get status counts
+      const statusCountQuery = `
+          SELECT status, COUNT(*) as count
+          FROM submissions
+          WHERE requested_by = $1 
+          ${intervalCondition}
+          GROUP BY status`;
+
+      // Query to get total count
+      const totalCountQuery = `
+          SELECT COUNT(*) as total_count
+          FROM submissions
+          WHERE requested_by = $1 
+          ${intervalCondition}`;
+
+      // Execute the queries sequentially
+      const statusResult = await db.query(statusCountQuery, [user_id]);
+      const totalResult = await db.query(totalCountQuery, [user_id]);
+
+      const statusCounts = {};
+      statusResult.rows.forEach(row => {
+          statusCounts[row.status] = row.count;
+      });
+
+      // Extract total count from the result
+      const totalCount = totalResult.rows[0].total_count;
+
+      // Send JSON response with status code 200
+      res.status(200).json({ statusCounts, totalCount });
+
+  } catch (err) {
+      console.error('Error fetching user submission status counts:', err);
+      // Send error response with status code 500
+      res.status(500).json({ error: 'Failed to fetch user submission status counts' });
+  }
+}
 module.exports = {
     insertData,
     getAllSubmissions,
@@ -780,5 +1137,8 @@ module.exports = {
     rejectStatus,
     insertDataBct,
     getSubmissionByIdBct,
-    getBCTid
+    getBCTid,
+    approveSubmissionCeat,
+    getUserSubmissionsCeat,
+    getUserSubmissionStatusCeatCounts
 };
