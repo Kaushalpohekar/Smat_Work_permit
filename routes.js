@@ -20,6 +20,7 @@ router.get('/getAllSubmissionsByUser/:user_id', ceat.getAllSubmissionsByUser);
 router.get('/getUserName/:user_id', ceat.getUserName);
 router.put('/approveStatus/:submissionId/:userId', ceat.approveStatus);
 router.put('/rejectStatus/:submissionId/:userId', ceat.rejectStatus);
+router.get('/bctIds', ceat.getBCTid);
 
 // Authentication
 router.post('/forgot', auth.forgotPassword);
