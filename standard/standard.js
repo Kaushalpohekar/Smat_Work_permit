@@ -2,7 +2,7 @@ const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
 const fs = require('fs');
 const path = require('path');
-const { validationResult } = require('express-validator');
+require('express-validator');
 const mime = require('mime-types');
 const nodemailer = require('nodemailer');
 const ejs = require('ejs');

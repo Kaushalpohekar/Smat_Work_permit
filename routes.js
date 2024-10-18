@@ -9,6 +9,22 @@ const authorizer = require('./authorized/authorized.js');
 const admin = require('./admin/admin.js');
 const organizationAdmin = require('./dashboard/organization.js');
 
+const ceat = require('./ceat/ceat.js');
+//ceat ROUTES
+router.post('/ceatInsertData', ceat.insertData);
+router.post('/ceatInsertDataBct', ceat.insertDataBct);
+router.get('/getAllSubmissions', ceat.getAllSubmissions); 
+router.get('/getSubmissionById/:submissionId', ceat.getSubmissionById);
+router.get('/getSubmissionByIdBct/:submissionId', ceat.getSubmissionByIdBct);
+router.get('/getAllSubmissionsByUser/:user_id', ceat.getAllSubmissionsByUser);
+router.get('/getUserName/:user_id', ceat.getUserName);
+router.put('/approveStatus/:submissionId/:userId', ceat.approveStatus);
+router.put('/rejectStatus/:submissionId/:userId', ceat.rejectStatus);
+router.get('/bctIds', ceat.getBCTid);
+router.get('/getSubmissionByIntervalCeat/:user_id/:interval', ceat.getUserSubmissionsCeat);
+router.get('/getSubmissionByIntervalCeatCount/:user_id/:interval', ceat.getUserSubmissionStatusCeatCounts);
+router.post('/approveSubmissionCeat', ceat.approveSubmissionCeat);
+
 // Authentication
 router.post('/forgot', auth.forgotPassword);
 router.get('/profilePicture/:user_id', auth.getProfilePicture);
