@@ -24,7 +24,7 @@ const { v4: uuidv4 } = require('uuid');
 async function createCategory(req, res) {
     const { name, subtitle, icon, form_type } = req.body;
     const department_id = req.params.department_id;
-    
+
     if (!name || !form_type || !department_id) {
         return res.status(400).json({ message: 'Name, form_type, and department_id are required' });
     }
@@ -44,13 +44,13 @@ async function createCategory(req, res) {
     `;
 
     try {
-        
+
         const checkResult = await db.query(checkCategoryQuery, [category_id]);
         if (checkResult.rows.length > 0) {
             return res.status(409).json({ message: 'Category ID already exists' });
         }
 
-         
+
         const values = [category_id, name, subtitle, icon, form_type, department_id];
         const insertResult = await db.query(insertCategoryQuery, values);
 
@@ -67,7 +67,7 @@ async function createCategory(req, res) {
 
 async function updateCategory(req, res) {
     const category_id = req.params.category_id;
-    const { name, subtitle, icon , form_type} = req.body;
+    const { name, subtitle, icon, form_type } = req.body;
     const updateCategoryQuery = `
         UPDATE public.categories 
         SET name = $1, subtitle = $2, icon = $3, form_type = $4
@@ -181,8 +181,8 @@ async function createForm(req, res) {
         `;
 
         const insertFormResult = await db.query(insertFormQuery, [
-            form_id, form_name, form_description, organization, created_by, form_type, 
-            formUID, title, subtitle, icon, start_date, start_time, 
+            form_id, form_name, form_description, organization, created_by, form_type,
+            formUID, title, subtitle, icon, start_date, start_time,
             end_date, end_time, name, worker, category_id, plant_id
         ]);
 
@@ -193,32 +193,32 @@ async function createForm(req, res) {
     }
 }
 
-async function getFormById(req,res){
-    const {form_id}=req.params;
+async function getFormById(req, res) {
+    const { form_id } = req.params;
     const getFormQuery = `SELECT * FROM public.forms WHERE form_id =$1`;
-    db.query(getFormQuery,[form_id],(error,result)=>{
-        if(error){
-            console.error('Error fetching form: ',error);
-            res.status(500).json({message:'Failed to fetch form'});
+    db.query(getFormQuery, [form_id], (error, result) => {
+        if (error) {
+            console.error('Error fetching form: ', error);
+            res.status(500).json({ message: 'Failed to fetch form' });
         }
-        if(result.rows.length===0){
-            return res.status(404).json({message:'Form not found'});
+        if (result.rows.length === 0) {
+            return res.status(404).json({ message: 'Form not found' });
         }
-        else{
+        else {
             res.status(200).json(result.rows[0]);
         }
     });
 }
 
 
-async function getAllForms(req,res){
-    const getAllformsQuery =`SELECT * FROM public.forms`;
-    db.query(getAllformsQuery,[],(error,result)=>{
-        if(error){
-            console.error('Error fetching forms:',error);
-            res.status(500).json({message:'Failed to fetch forms'});
+async function getAllForms(req, res) {
+    const getAllformsQuery = `SELECT * FROM public.forms`;
+    db.query(getAllformsQuery, [], (error, result) => {
+        if (error) {
+            console.error('Error fetching forms:', error);
+            res.status(500).json({ message: 'Failed to fetch forms' });
         }
-        else{
+        else {
             res.status(200).json(result.rows);
         }
     });
@@ -251,22 +251,22 @@ async function updateForm(req, res) {
 }
 
 
-async function deleteForm(req,res){
-const {form_id}=req.params;
-const deleteFormQuery=`DELETE FROM public.forms WHERE form_id = $1 RETURNING *`;
-db.query(deleteFormQuery,[form_id],(error,result)=>{
-    if(error){
-        console.error('Error deleting forms:',error);
-        res.status(500).json({message:'Failed to delete form'});
-    }
-    if(result.rows.length === 0){
-        res.status(404).json({message:'Form not found'});
+async function deleteForm(req, res) {
+    const { form_id } = req.params;
+    const deleteFormQuery = `DELETE FROM public.forms WHERE form_id = $1 RETURNING *`;
+    db.query(deleteFormQuery, [form_id], (error, result) => {
+        if (error) {
+            console.error('Error deleting forms:', error);
+            res.status(500).json({ message: 'Failed to delete form' });
+        }
+        if (result.rows.length === 0) {
+            res.status(404).json({ message: 'Form not found' });
 
-    }
-    else{
-        res.status(200).json({message:'Form deleted successfully', form:result.rows[0]});
-    }
-})
+        }
+        else {
+            res.status(200).json({ message: 'Form deleted successfully', form: result.rows[0] });
+        }
+    })
 }
 
 
@@ -363,16 +363,16 @@ async function updateQuestion(req, res) {
 }
 
 
-async function deleteQuestion(req,res){
+async function deleteQuestion(req, res) {
     const questionId = req.params.question_id;
     const deleteQuestionQuery = `DELETE FROM questions WHERE question_id = $1`;
-    db.query(deleteQuestionQuery,[questionId],(error)=>{
-        if(error){
-            console.error('Error deleting question:',error);
-            res.status(500).json({message:'Failed to delete question'});
+    db.query(deleteQuestionQuery, [questionId], (error) => {
+        if (error) {
+            console.error('Error deleting question:', error);
+            res.status(500).json({ message: 'Failed to delete question' });
         }
-        else{
-            res.status(200).json({message:'Question deleted successfully'});
+        else {
+            res.status(200).json({ message: 'Question deleted successfully' });
         }
     })
 }
@@ -385,7 +385,7 @@ async function getQuestionByFormId(req, res) {
     try {
         const result = await db.query(getQuestionQuery, [form_id]);
         const questions = result.rows;
-        
+
         res.status(200).json({ questions });
     } catch (error) {
         console.error('Error fetching questions:', error);
@@ -393,7 +393,7 @@ async function getQuestionByFormId(req, res) {
     }
 }
 
-module.exports={
+module.exports = {
     //category
     createCategory,
     updateCategory,

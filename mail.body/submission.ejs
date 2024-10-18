@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Form Submission Notification</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: Calibri, Candara, Segoe, "Segoe UI", Optima, Arial, sans-serif;
+            background-color: #f5f5f5;
+        }
+
+        .email-wrapper {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: auto;
+            background-color: #f5f5f5;
+            padding: 20px;
+        }
+
+        .email-container {
+            background-color: #ffffff;
+            max-width: 600px;
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+            padding: 20px;
+        }
+
+        .email-header {
+            text-align: center;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 10px;
+        }
+
+        .email-header h2 {
+            color: #333;
+            margin: 0;
+            font-size: 1rem;
+        }
+
+        .email-body {
+            padding: 20px;
+        }
+
+        .email-body p {
+            color: #555;
+            line-height: 1.8;
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+            text-align: justify; /* Added justification */
+        }
+
+        .highlight {
+            color: #ff5722;
+            font-weight: bold;
+        }
+
+        .highlight-2 {
+            color: #333;
+            font-weight: 550;
+        }
+
+        .email-footer {
+            padding-top: 10px;
+            text-align: center;
+            border-top: 1px solid #ddd;
+            font-size: 0.6rem;
+            color: #777;
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="email-header">
+                <h2>Form Submission Notification</h2>
+            </div>
+
+            <div class="email-body">
+                <p>Dear <span class="highlight-2"><%= authorizerDetails.first_name %> <%= authorizerDetails.last_name %></span>,</p>
+
+                <p>
+                    We are writing to inform you that the form
+                    <span class="highlight"><%= formDetails.form_name %></span> has been requested by the operator.
+                    Please review the details and proceed with the next steps in the approval process.
+                </p>
+
+                <p>
+                    Form Description: <span class="highlight">
+                        <%= formDetails.form_description %>
+                    </span>.
+                    Kindly verify the information and
+                    take any necessary action.
+                </p>
+
+                <p>
+                    Thank you for your prompt attention to this matter. Should you have any questions, feel free to
+                    contact us.
+                </p>
+
+            </div>
+
+            <div class="email-footer">
+                <p>
+                    Best regards, <br>
+                    SenseLive Technologies <br>
+                    <a href="mailto:info.senselive@gmail.com" style="text-decoration: underline; color: inherit;">info.senselive@gmail.com</a>
+                </p>
+            </div>
+
+        </div>
+    </div>
+
+</body>
+
+</html>

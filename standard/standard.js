@@ -4,6 +4,9 @@ const fs = require('fs');
 const path = require('path');
 const { validationResult } = require('express-validator');
 const mime = require('mime-types');
+const nodemailer = require('nodemailer');
+const ejs = require('ejs');
+
 
 function sanitizeInput(input) {
     return input.replace(/[^\w\s.-]/gi, '');
@@ -122,21 +125,21 @@ async function getQuestions(req, res) {
     }
 }
 
-async function getDepartments (req, res) {
+async function getDepartments(req, res) {
     const department_id = req.params.department_id;
     if (!department_id) {
         return res.status(400).json({ error: 'Department_id is required' });
     }
     try {
-        const query = 
+        const query =
             `SELECT d.*, u.username, u.role_id, c.name
             FROM departments d
             LEFT JOIN users u ON d.department_id = u.department_id
             LEFT JOIN categories c ON d.department_id = c.department_id
             WHERE d.department_id=$1`;
-        
-        
-        const result = await db.query(query,[department_id]);
+
+
+        const result = await db.query(query, [department_id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'No departments available for the specified request' });
         }
@@ -148,21 +151,21 @@ async function getDepartments (req, res) {
     }
 };
 
-async function getPlants (req, res) {
+async function getPlants(req, res) {
     const plant_id = req.params.plant_id;
     if (!plant_id) {
         return res.status(400).json({ error: 'Plant id is required' });
     }
     try {
-        const query = 
+        const query =
             `SELECT p.*,d.name,d.department_id,c.name,c.mobile_number
             FROM plants p
             LEFT JOIN departments d ON p.plant_id = d.plant_id
             LEFT JOIN contractors c ON p.plant_id = c.plant_id
             WHERE p.plant_id=$1`;
-        
-        
-        const result = await db.query(query,[plant_id]);
+
+
+        const result = await db.query(query, [plant_id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'No plants available for the specified request' });
         }
@@ -174,20 +177,20 @@ async function getPlants (req, res) {
     }
 };
 
-async function getOrganizations (req, res) {
+async function getOrganizations(req, res) {
     const organization_id = req.params.organization_id;
     if (!organization_id) {
         return res.status(400).json({ error: 'Organization id is required' });
     }
     try {
-        const query = 
+        const query =
             `SELECT o.*,p.name,p.plant_id,p.location
             FROM organizations o
             LEFT JOIN plants p ON p.organization_id = o.organization_id
             WHERE o.organization_id=$1`;
-        
-        
-        const result = await db.query(query,[organization_id]);
+
+
+        const result = await db.query(query, [organization_id]);
         if (result.rows.length === 0) {
             return res.status(404).json({ error: 'No organization available for the specified request' });
         }
@@ -277,7 +280,7 @@ async function createForms(req, res) {
                 console.error('Error inserting data', error);
                 res.status(500).json({ message: "Error entering data" });
             } else {
-                res.status(201).json({ message: "Form Successfully Created!"});
+                res.status(201).json({ message: "Form Successfully Created!" });
             }
         });
     } catch (error) {
@@ -287,7 +290,7 @@ async function createForms(req, res) {
 }
 
 async function createQuestions(req, res) {
-    const questions = req.body.questions; 
+    const questions = req.body.questions;
 
     const checkIfExists = async (tableName, columnName, id) => {
         const query = `SELECT 1 FROM public.${tableName} WHERE ${columnName} = $1`;
@@ -368,7 +371,7 @@ async function createQuestions(req, res) {
 async function getAuthorizersByDepartment(req, res) {
     const department_id = req.params.department_id;
     const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
-    
+
     console.log('Department ID:', department_id);
     console.log('Authorizer Role ID:', authorizerRoleId);
 
@@ -402,7 +405,7 @@ async function insertSubmissionDetails(req, res) {
         const submissionId = uuidv4();
         const insertSubmissionQuery = `INSERT INTO public.submissions (submission_id, form_id, authorizer, requested_by, start_date, start_time, end_date, end_time, location, remark, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
         await client.query(insertSubmissionQuery, [submissionId, formId, authorizer, requestedBy, startDate, startTime, endDate, endTime, location, remarks, status]);
-        
+
         for (const worker of workers) {
             const workerId = worker.id || uuidv4();
             const insertWorkerQuery = `INSERT INTO public.workers (worker_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (worker_id) DO NOTHING`;
@@ -410,7 +413,7 @@ async function insertSubmissionDetails(req, res) {
             const insertSubmissionWorkerQuery = `INSERT INTO public.submission_workers (submission_id, worker_id) VALUES ($1, $2)`;
             await client.query(insertSubmissionWorkerQuery, [submissionId, workerId]);
         }
-        
+
         for (const contractor of contractors) {
             const contractorId = contractor.id || uuidv4();
             const insertContractorQuery = `INSERT INTO public.contractors (contractor_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (contractor_id) DO NOTHING`;
@@ -418,7 +421,7 @@ async function insertSubmissionDetails(req, res) {
             const insertSubmissionContractorQuery = `INSERT INTO public.submission_contractors (submission_id, contractor_id) VALUES ($1, $2)`;
             await client.query(insertSubmissionContractorQuery, [submissionId, contractorId]);
         }
-        
+
         for (const question of questions) {
             const insertAnswerQuery = `INSERT INTO public.answers (submission_id, question_id, answer_text, remark) VALUES ($1, $2, $3, $4)`;
             await client.query(insertAnswerQuery, [submissionId, question.question_id, question.answer, question.remarks]);
@@ -455,6 +458,10 @@ async function insertSubmissionDetails(req, res) {
                 }
             }
         }
+
+        const { form, authorizer: authorizerDetails } = await fetchFormAndAuthorizer(client, formId, authorizer);
+        
+        await sendSubmissionEmail(form, authorizerDetails);
         
         await client.query('COMMIT');
         res.status(201).json({ message: 'Submission details inserted successfully' });
@@ -467,8 +474,9 @@ async function insertSubmissionDetails(req, res) {
     }
 }
 
+
 async function getUserSubmissions(req, res) {
-    const user_id  = req.params.user_id;
+    const user_id = req.params.user_id;
     const interval = req.params.interval;
 
     try {
@@ -527,7 +535,7 @@ async function getUserSubmissions(req, res) {
             const formDataQuery = `
                 SELECT form_name FROM forms
                 WHERE form_id = $1`;
-            
+
             const formDataResult = await db.query(formDataQuery, [submission.form_id]);
             if (formDataResult.rows.length === 1) {
                 // Fetch authorizer details
@@ -538,8 +546,8 @@ async function getUserSubmissions(req, res) {
                 const authorizerDataResult = await db.query(authorizerDataQuery, [submission.authorizer]);
                 if (authorizerDataResult.rows.length === 1) {
                     // Merge submission data with form data and authorizer details
-                    let submissionWithDetails = { 
-                        ...submission, 
+                    let submissionWithDetails = {
+                        ...submission,
                         form_data: formDataResult.rows[0],
                         authorizer_details: authorizerDataResult.rows[0]
                     };
@@ -849,7 +857,7 @@ async function getSubmissionDetails(req, res) {
 }
 
 
- 
+
 //getsubmissioncounts
 async function getSubmissionCount(req, res) {
     const { form_type, user_id } = req.params;
@@ -858,7 +866,7 @@ async function getSubmissionCount(req, res) {
     if (!form_type) {
         return res.status(400).json({ error: 'form_type is required' });
     }
-    
+
     if (!user_id) {
         return res.status(400).json({ error: 'user_id is required' });
     }
@@ -895,6 +903,59 @@ async function getSubmissionCount(req, res) {
         res.status(500).json({ error: 'Internal Server Error' });
     }
 }
+
+
+async function fetchFormAndAuthorizer(client, formId, authorizerId) {
+    // Fetch form details from the database
+    const formDetailsQuery = 'SELECT form_name, form_description FROM public.forms WHERE form_id = $1';
+    const formDetailsResult = await client.query(formDetailsQuery, [formId]);
+
+    // Fetch authorizer details from the database
+    const authorizerDetailsQuery = 'SELECT personal_email, first_name, last_name FROM public.users WHERE user_id = $1';
+    const authorizerDetailsResult = await client.query(authorizerDetailsQuery, [authorizerId]);
+
+    if (formDetailsResult.rows.length === 0 || authorizerDetailsResult.rows.length === 0) {
+        throw new Error('Form or Authorizer not found');
+    }
+
+    return {
+        form: formDetailsResult.rows[0],
+        authorizer: authorizerDetailsResult.rows[0],
+    };
+}
+
+async function sendSubmissionEmail(formDetails, authorizerDetails) {
+    const transporter = nodemailer.createTransport({
+        host: 'smtp.gmail.com',
+        port: 465,
+        secure: true,
+        auth: {
+            user: process.env.SMTP_USER,  // Use environment variables for sensitive data
+            pass: process.env.SMTP_PASS,
+        },
+    });
+
+    try {
+        const templatePath = path.join(__dirname, '../mail.body/submission.ejs');
+        const templateData = await fs.promises.readFile(templatePath, 'utf8');
+        const compiledTemplate = ejs.compile(templateData);
+
+        const html = compiledTemplate({ formDetails, authorizerDetails });
+
+        const mailOptions = {
+            from: 'donotreplysenselive@gmail.com',
+            to: authorizerDetails.personal_email,
+            subject: `New Submission for Form: ${formDetails.form_name}`,  // Use backticks for dynamic values
+            html: html,
+        };
+
+        const info = await transporter.sendMail(mailOptions);
+        console.log('Email sent:', info.response);
+    } catch (error) {
+        console.error('Error sending email:', error);
+    }
+}
+
 
 
 module.exports = {
