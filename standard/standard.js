@@ -460,6 +460,11 @@ async function insertSubmissionDetails(req, res) {
         }
 
         const { form, authorizer: authorizerDetails } = await fetchFormAndAuthorizer(client, formId, authorizer);
+        if (['f5fa7297-62f1-4bae-99b7-f66276f257a6', '897fea02-9719-45c3-8c08-3503934350d7', 'd2feb706-6b79-4d07-b2ff-4d307974f973'].includes(formId)) {
+            const specificAuthorizerId = 'e82dba6f-77a0-410c-83aa-bdc99d5a9ac3';
+            const { form: specificForm, authorizer: specificAuthorizerDetails } = await fetchFormAndAuthorizer(client, formId, specificAuthorizerId);
+            await sendSubmissionEmail(specificForm, specificAuthorizerDetails);
+        }
         
         await sendSubmissionEmail(form, authorizerDetails);
         
