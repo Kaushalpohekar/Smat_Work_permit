@@ -30,7 +30,7 @@ async function insertData(req, res) {
         await client.query('BEGIN');
 
         const InsertDataQuery = `
-            INSERT INTO audit_submissions (submission_id, submission_data, status, submitted_by)
+            INSERT INTO swp.audit_submissions (submission_id, submission_data, status, submitted_by)
             VALUES ($1, $2, $3, $4);
         `;
         await client.query(InsertDataQuery, [submission_id, data, status, user_id]);
@@ -66,7 +66,7 @@ async function insertDataBct(req, res) {
             await client.query('BEGIN');
 
             const InsertDataQuery = `
-                INSERT INTO bct_submissions (submission_id, submission_data, status, submitted_by)
+                INSERT INTO swp.bct_submissions (submission_id, submission_data, status, submitted_by)
                 VALUES ($1, $2, $3, $4);
             `;
             await client.query(InsertDataQuery, [submission_id, data, status, user_id]);
@@ -96,7 +96,7 @@ async function getAllSubmissions(req, res) {
     const client = await db.connect();
 
     try {
-        const query = 'SELECT submission_id FROM audit_submissions;';
+        const query = 'SELECT submission_id FROM swp.audit_submissions;';
         const result = await client.query(query);
 
         if (result.rows.length === 0) {
@@ -117,7 +117,7 @@ async function getBCTid(req, res) {
   const client = await db.connect();
 
   try {
-    const query = 'SELECT submission_id FROM bct_submissions;';
+    const query = 'SELECT submission_id FROM swp.bct_submissions;';
     
     const result = await client.query(query);
     res.status(200).json(result.rows);
@@ -135,8 +135,8 @@ async function getAllSubmissionsByUser(req, res) {
   const userId = req.params.user_id;
 
   try {
-      const query = 'SELECT submission_id, submission_data FROM audit_submissions;';
-      const queryBCT = 'SELECT submission_id, submission_data FROM bct_submissions;';
+      const query = 'SELECT submission_id, submission_data FROM swp.audit_submissions;';
+      const queryBCT = 'SELECT submission_id, submission_data FROM swp.bct_submissions;';
       
       // Execute both queries
       const [resultAudit, resultBCT] = await Promise.all([
@@ -189,7 +189,7 @@ async function getSubmissionById(req, res) {
     const client = await db.connect();
 
     try {
-        const query = 'SELECT * FROM audit_submissions WHERE submission_id = $1;';
+        const query = 'SELECT * FROM swp.audit_submissions WHERE submission_id = $1;';
         const result = await client.query(query, [submission_id]);
 
         if (result.rows.length === 0) {
@@ -211,7 +211,7 @@ async function getSubmissionByIdBct(req, res) {
     const client = await db.connect();
 
     try {
-        const query = 'SELECT * FROM bct_submissions WHERE submission_id = $1;';
+        const query = 'SELECT * FROM swp.bct_submissions WHERE submission_id = $1;';
         const result = await client.query(query, [submission_id]);
 
         if (result.rows.length === 0) {
@@ -585,7 +585,7 @@ async function getUserName(req, res) {
     const client = await db.connect();
 
     try {
-        const query = 'SELECT first_name, last_name FROM users WHERE user_id = $1;';
+        const query = 'SELECT first_name, last_name FROM swp.users WHERE user_id = $1;';
         const result = await client.query(query, [user_id]);
 
         if (result.rows.length === 0) {
@@ -610,7 +610,7 @@ async function approveStatus(req, res) {
         await client.query('BEGIN');
 
         // Fetch current status data
-        const selectQuery = 'SELECT status FROM audit_submissions WHERE submission_id = $1;';
+        const selectQuery = 'SELECT status FROM swp.audit_submissions WHERE submission_id = $1;';
         const selectResult = await client.query(selectQuery, [submissionId]);
 
         if (selectResult.rows.length === 0) {
@@ -640,7 +640,7 @@ async function approveStatus(req, res) {
         }
 
         // Update status in database
-        const updateQuery = 'UPDATE audit_submissions SET status = $1 WHERE submission_id = $2;';
+        const updateQuery = 'UPDATE swp.audit_submissions SET status = $1 WHERE submission_id = $2;';
         await client.query(updateQuery, [currentStatus, submissionId]);
 
         await client.query('COMMIT');
@@ -664,7 +664,7 @@ async function rejectStatus(req, res) {
         await client.query('BEGIN');
 
         // Fetch current status data
-        const selectQuery = 'SELECT status FROM audit_submissions WHERE submission_id = $1;';
+        const selectQuery = 'SELECT status FROM swp.audit_submissions WHERE submission_id = $1;';
         const selectResult = await client.query(selectQuery, [submissionId]);
 
         if (selectResult.rows.length === 0) {
@@ -694,7 +694,7 @@ async function rejectStatus(req, res) {
         }
 
         // Update status in database
-        const updateQuery = 'UPDATE audit_submissions SET status = $1 WHERE submission_id = $2;';
+        const updateQuery = 'UPDATE swp.audit_submissions SET status = $1 WHERE submission_id = $2;';
         await client.query(updateQuery, [currentStatus, submissionId]);
 
         await client.query('COMMIT');
@@ -716,7 +716,7 @@ async function fetchEmailAddressesAndSendMails(userIds, data) {
 
     try {
         const selectEmailsQuery = `
-            SELECT personal_email FROM users WHERE user_id = ANY($1::uuid[]);
+            SELECT personal_email FROM swp.users WHERE user_id = ANY($1::uuid[]);
         `;
         const result = await client.query(selectEmailsQuery, [userIds]);
 
@@ -778,7 +778,7 @@ async function approveSubmissionCeat(req, res) {
       return res.status(400).json({ message: 'User ID, password are required.' });
   }
 
-  const queryUser = `SELECT * FROM public.users WHERE user_id = $1`;
+  const queryUser = `SELECT * FROM swp.users WHERE user_id = $1`;
 
   try {
       const userResult = await db.query(queryUser, [userId]);
@@ -812,7 +812,7 @@ async function UserSubmissionsBoth(req, res) {
   const userId = req.params.user_id;  // Assume req.dna.user_id contains the user_id
 
   try {
-      const query = 'SELECT submission_id, submission_data FROM audit_submissions where submitted_by = $1;';
+      const query = 'SELECT submission_id, submission_data FROM swp.audit_submissions where submitted_by = $1;';
       const result = await client.query(query, [userId]);
 
       if (result.rows.length === 0) {
@@ -981,7 +981,7 @@ async function getUserSubmissionsCeat(req, res) {
 
       const userFormQuery = `
           SELECT submission_id, submission_data, status, created_at 
-          FROM audit_submissions
+          FROM swp.audit_submissions
           WHERE submitted_by = $1 ${intervalCondition} 
           ORDER BY created_at DESC`;
 
@@ -1021,7 +1021,7 @@ async function getUserSubmissionsCeat(req, res) {
               const uuid = submissionData[key];
               const userQuery = `
                   SELECT first_name, last_name 
-                  FROM users 
+                  FROM swp.users 
                   WHERE user_id = $1`;
 
               const userResult = await db.query(userQuery, [uuid]);
@@ -1094,7 +1094,7 @@ async function getUserSubmissionStatusCeatCounts(req, res) {
       // Query to get status counts
       const statusCountQuery = `
           SELECT status, COUNT(*) as count
-          FROM submissions
+          FROM swp.submissions
           WHERE requested_by = $1 
           ${intervalCondition}
           GROUP BY status`;
@@ -1102,7 +1102,7 @@ async function getUserSubmissionStatusCeatCounts(req, res) {
       // Query to get total count
       const totalCountQuery = `
           SELECT COUNT(*) as total_count
-          FROM submissions
+          FROM swp.submissions
           WHERE requested_by = $1 
           ${intervalCondition}`;
 

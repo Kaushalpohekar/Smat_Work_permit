@@ -16,7 +16,7 @@ encryptKey = "SenseLive-Smart-Work-Permit";
 
 async function login(req, res) {
     const { usernameOrEmail, password } = req.body;
-    const query = `SELECT * FROM public.users WHERE username = $1 OR personal_email = $2`;
+    const query = `SELECT * FROM swp.users WHERE username = $1 OR personal_email = $2`;
 
     try {
         const result = await db.query(query, [usernameOrEmail, usernameOrEmail]);
@@ -76,16 +76,16 @@ async function register(req, res) {
     try {
         await client.query('BEGIN');
 
-        const AddOrganizationQuery = `INSERT INTO public.organizations (organization_id, "name", address, created_at) VALUES($1, $2, $3, CURRENT_TIMESTAMP);`;
+        const AddOrganizationQuery = `INSERT INTO swp.organizations (organization_id, "name", address, created_at) VALUES($1, $2, $3, CURRENT_TIMESTAMP);`;
         await client.query(AddOrganizationQuery, [organization_id, CompanyName, CompanyAddress]);
 
-        const AddPlantQuery = `INSERT INTO public.plants (plant_id, organization_id, "name", "location", created_at) VALUES($1, $2, $3, $4, CURRENT_TIMESTAMP);`;
+        const AddPlantQuery = `INSERT INTO swp.plants (plant_id, organization_id, "name", "location", created_at) VALUES($1, $2, $3, $4, CURRENT_TIMESTAMP);`;
         await client.query(AddPlantQuery, [plant_id, organization_id, CompanyName, CompanyAddress]);
 
-        const AddDepartmentQuery = `INSERT INTO public.departments (department_id, plant_id, "name", created_at) VALUES($1, $2, $3, CURRENT_TIMESTAMP);`;
+        const AddDepartmentQuery = `INSERT INTO swp.departments (department_id, plant_id, "name", created_at) VALUES($1, $2, $3, CURRENT_TIMESTAMP);`;
         await client.query(AddDepartmentQuery, [department_id, plant_id, department_name]);
 
-        const AdminUUIDQuery = `SELECT role_id FROM public.roles WHERE name = $1;`;
+        const AdminUUIDQuery = `SELECT role_id FROM swp.roles WHERE name = $1;`;
         const roleResult = await client.query(AdminUUIDQuery, [role]);
 
         if (roleResult.rows.length === 0) {
@@ -94,7 +94,7 @@ async function register(req, res) {
 
         const role_id = roleResult.rows[0].role_id;
 
-        const CheckUserExistQuery = `SELECT * FROM users WHERE personal_email = $1 OR company_email = $2;`;
+        const CheckUserExistQuery = `SELECT * FROM swp.users WHERE personal_email = $1 OR company_email = $2;`;
         const userResult = await client.query(CheckUserExistQuery, [PersonalEmail, CompanyEmail]);
 
         if (userResult.rows.length > 0) {
@@ -103,7 +103,7 @@ async function register(req, res) {
             return;
         }
 
-        const InsertUserQuery = `INSERT INTO public.users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10, false, false, $11);`;
+        const InsertUserQuery = `INSERT INTO swp.users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no) VALUES($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP, $10, false, false, $11);`;
         await client.query(InsertUserQuery, [user_id, username, PersonalEmail, password_hash, FirstName, LastName, role_id, organization_id, department_id, CompanyEmail, ContactNO]);
 
         await client.query('COMMIT');
@@ -123,7 +123,7 @@ async function forgotPassword(req, res) {
     const { usernameOrEmail } = req.body;
 
     try {
-        const query = 'SELECT * FROM public.users WHERE personal_email = $1';
+        const query = 'SELECT * FROM swp.users WHERE personal_email = $1';
         const result = await db.query(query, [usernameOrEmail]);
 
         if (result.rows.length === 0) {
@@ -133,13 +133,13 @@ async function forgotPassword(req, res) {
         const resetToken = jwtUtils.generateToken({ usernameOrEmail });
         const userId = result.rows[0].user_id; 
 
-        const insertQuery = 'INSERT INTO public.reset_tokens (user_id, token) VALUES ($1, $2)';
+        const insertQuery = 'INSERT INTO swp.reset_tokens (user_id, token) VALUES ($1, $2)';
         await db.query(insertQuery, [userId, resetToken]);
 
         //await sendResetTokenEmail(usernameOrEmail, resetToken);
 
         res.status(200).json({ message: 'Reset token sent to your email' });
-        console.log('http://localhost:4200/l/reset?token=',resetToken);
+        console.log('https://forms.senselive.in:4200/l/reset?token=',resetToken);
     } catch (error) {
         console.error('Error during password reset process:', error);
         res.status(500).json({ message: 'Internal server error' });
@@ -151,7 +151,7 @@ async function resendResetToken(req, res) {
     const { personalEmail } = req.body;
 
     try {
-        const checkUserQuery = 'SELECT * FROM public.users WHERE personal_email = $1';
+        const checkUserQuery = 'SELECT * FROM swp.users WHERE personal_email = $1';
         const userResult = await db.query(checkUserQuery, [personalEmail]);
 
         if (userResult.rows.length === 0) {
@@ -161,7 +161,7 @@ async function resendResetToken(req, res) {
         const userId = userResult.rows[0].user_id;
         const verificationToken = jwtUtils.generateToken({ personalEmail });
 
-        const updateQuery = 'UPDATE public.swp_reset_tokens SET token = $1 WHERE user_id = $2';
+        const updateQuery = 'UPDATE swp.swp_reset_tokens SET token = $1 WHERE user_id = $2';
         await db.query(updateQuery, [verificationToken, userId]);
 
         await sendResetTokenEmail(personalEmail, verificationToken);
@@ -178,7 +178,7 @@ async function resetPassword(req, res) {
     const { token, password } = req.body;
 
     try {
-        const query = 'SELECT * FROM public.reset_tokens WHERE token = $1';
+        const query = 'SELECT * FROM swp.reset_tokens WHERE token = $1';
         const result = await db.query(query, [token]);
 
         if (result.rowCount === 0) {
@@ -190,10 +190,10 @@ async function resetPassword(req, res) {
 
         const hashedPassword = await bcrypt.hash(password, 10);
 
-        const updateQuery = 'UPDATE public.users SET password = $1 WHERE user_id = $2';
+        const updateQuery = 'UPDATE swp.users SET password = $1 WHERE user_id = $2';
         await db.query(updateQuery, [hashedPassword, userId]);
 
-        const deleteQuery = 'DELETE FROM public.swp_reset_tokens WHERE token = $1';
+        const deleteQuery = 'DELETE FROM swp.swp_reset_tokens WHERE token = $1';
         await db.query(deleteQuery, [token]);
 
         res.status(200).json({ message: 'Password reset successful' });
@@ -255,7 +255,7 @@ async function getUserDetails(req, res) {
             return res.status(401).json({ message: 'Invalid token' });
         }
 
-        const fetchUserQuery = 'SELECT * FROM public.users WHERE user_id = $1';
+        const fetchUserQuery = 'SELECT * FROM swp.users WHERE user_id = $1';
         const userResult = await db.query(fetchUserQuery, [decodedToken.user_id]);
 
         if (userResult.rowCount === 0) {
@@ -263,7 +263,7 @@ async function getUserDetails(req, res) {
         }
 
         const userDetail = userResult.rows[0];
-        const fetchRoleQuery = 'SELECT * FROM public.roles WHERE role_id = $1'; // Assuming companies table and correct column names
+        const fetchRoleQuery = 'SELECT * FROM swp.roles WHERE role_id = $1'; // Assuming companies table and correct column names
         const roleResult = await db.query(fetchRoleQuery, [userDetail.role_id]);
 
         if (roleResult.rowCount === 0) {
@@ -290,7 +290,7 @@ async function block(req, res) {
     const blockValue = action === 'block' ? 1 : 0;
 
     try {
-        const checkQuery = 'SELECT block FROM public.users WHERE user_id = $1';
+        const checkQuery = 'SELECT block FROM swp.users WHERE user_id = $1';
         const checkResult = await db.query(checkQuery, [user_id]);
 
         if (checkResult.rows.length === 0) {
@@ -304,7 +304,7 @@ async function block(req, res) {
             return res.status(200).json({ message: `User is ${statusMessage}` });
         }
 
-        const updateQuery = 'UPDATE public.users SET block = $1 WHERE user_id = $2';
+        const updateQuery = 'UPDATE swp.users SET block = $1 WHERE user_id = $2';
         const updateResult = await db.query(updateQuery, [blockValue, user_id]);
 
         if (updateResult.rowCount === 0) {
@@ -327,7 +327,7 @@ async function getAllTokens(req, res) {
     
     if (token === matchToken) {
         try {
-            const query = 'SELECT * FROM public.reset_tokens';
+            const query = 'SELECT * FROM swp.reset_tokens';
             const result = await db.query(query);
 
             if (result.rowCount === 0) {
@@ -353,9 +353,9 @@ async function updateUser(req, res) {
   const user_id = req.params.user_id;
   const { first_name, last_name, designation } = req.body;
 
-  const checkUserExistsQuery = 'SELECT 1 FROM public.users WHERE user_id = $1';
+  const checkUserExistsQuery = 'SELECT 1 FROM swp.users WHERE user_id = $1';
   const updateQuery = `
-    UPDATE public.users
+    UPDATE swp.users
     SET first_name = $1,
         last_name = $2
     WHERE user_id = $3
@@ -385,9 +385,9 @@ async function updateEmail(req, res) {
   const user_id = req.params.user_id;
   const { company_email, personal_email, contact_no } = req.body;
 
-  const checkUserExistsQuery = 'SELECT 1 FROM public.users WHERE user_id = $1';
+  const checkUserExistsQuery = 'SELECT 1 FROM swp.users WHERE user_id = $1';
   const updateQuery = `
-    UPDATE public.users 
+    UPDATE swp.users 
     SET company_email = $1,
         personal_email = $2,
         contact_no = $3
@@ -420,7 +420,7 @@ async function updatePassword(req, res) {
 
   try {
     // Step 1: Check if user exists
-    const checkUserQuery = `SELECT * FROM public.users WHERE user_id = $1`;
+    const checkUserQuery = `SELECT * FROM swp.users WHERE user_id = $1`;
     const userResult = await db.query(checkUserQuery, [user_id]);
 
     if (userResult.rows.length === 0) {
@@ -438,7 +438,7 @@ async function updatePassword(req, res) {
 
     // Step 3: Update the password
     const hashedNewPassword = await bcrypt.hash(newPassword, 10); // Hash the new password
-    const updateQuery = `UPDATE public.users SET password_hash = $1 WHERE user_id = $2`;
+    const updateQuery = `UPDATE swp.users SET password_hash = $1 WHERE user_id = $2`;
     await db.query(updateQuery, [hashedNewPassword, user_id]);
 
     // Step 4: Respond with success message
@@ -465,7 +465,7 @@ async function insertOrUpdateUserProfilePhoto(req, res) {
         // Check if user_id exists in the users table (assuming it's already validated in your middleware)
 
         // Check if user_id exists in the userprofilepictures table
-        const userProfilePhotoCheckQuery = 'SELECT 1 FROM public.userprofilepictures WHERE user_id = $1';
+        const userProfilePhotoCheckQuery = 'SELECT 1 FROM swp.userprofilepictures WHERE user_id = $1';
         const userProfilePhotoResult = await client.query(userProfilePhotoCheckQuery, [user_id]);
 
         // Save the file to the profile folder
@@ -492,14 +492,14 @@ async function insertOrUpdateUserProfilePhoto(req, res) {
         // Insert or update the record in the userprofilepictures table
         if (userProfilePhotoResult.rowCount > 0) {
             const updatePhotoQuery = `
-                UPDATE public.userprofilepictures
+                UPDATE swp.userprofilepictures
                 SET photo_name = $1, photo_path = $2
                 WHERE user_id = $3
             `;
             await client.query(updatePhotoQuery, [name, photoPath, user_id]);
         } else {
             const insertPhotoQuery = `
-                INSERT INTO public.userprofilepictures (user_id, photo_name, photo_path)
+                INSERT INTO swp.userprofilepictures (user_id, photo_name, photo_path)
                 VALUES ($1, $2, $3)
             `;
             await client.query(insertPhotoQuery, [user_id, name, photoPath]);
@@ -526,7 +526,7 @@ async function getProfilePicture(req, res) {
             return res.status(400).json({ error: 'User ID is required' });
         }
 
-        const query = `SELECT photo_path, photo_name as profile_name FROM userprofilepictures WHERE user_id = $1`;
+        const query = `SELECT photo_path, photo_name as profile_name FROM swp.userprofilepictures WHERE user_id = $1`;
 
         const result = await db.query(query, [user_id]);
 

@@ -24,7 +24,7 @@ async function getCategories(req, res) {
         const sanitizedDepartmentId = sanitizeInput(department_id);
 
         const query = `
-            SELECT * FROM categories
+            SELECT * FROM swp.categories
             WHERE form_type = $1 AND department_id = $2
         `;
 
@@ -55,7 +55,7 @@ async function getForms(req, res) {
 
     try {
         const query = `
-            SELECT * FROM forms
+            SELECT * FROM swp.forms
             WHERE category_id = $1
         `;
 
@@ -83,8 +83,8 @@ async function getQuestions(req, res) {
     try {
         const query = `
             SELECT q.question_id, q.question_text, q.question_type, q.created_at, o.option_id, o.option_text
-            FROM public.questions q
-            LEFT JOIN public.options o ON q.question_id = o.question_id
+            FROM swp.questions q
+            LEFT JOIN swp.options o ON q.question_id = o.question_id
             WHERE q.form_id = $1
         `;
 
@@ -133,9 +133,9 @@ async function getDepartments(req, res) {
     try {
         const query =
             `SELECT d.*, u.username, u.role_id, c.name
-            FROM departments d
-            LEFT JOIN users u ON d.department_id = u.department_id
-            LEFT JOIN categories c ON d.department_id = c.department_id
+            FROM swp.departments d
+            LEFT JOIN swp.users u ON d.department_id = u.department_id
+            LEFT JOIN swp.categories c ON d.department_id = c.department_id
             WHERE d.department_id=$1`;
 
 
@@ -159,9 +159,9 @@ async function getPlants(req, res) {
     try {
         const query =
             `SELECT p.*,d.name,d.department_id,c.name,c.mobile_number
-            FROM plants p
-            LEFT JOIN departments d ON p.plant_id = d.plant_id
-            LEFT JOIN contractors c ON p.plant_id = c.plant_id
+            FROM swp.plants p
+            LEFT JOIN swp.departments d ON p.plant_id = d.plant_id
+            LEFT JOIN swp.contractors c ON p.plant_id = c.plant_id
             WHERE p.plant_id=$1`;
 
 
@@ -185,8 +185,8 @@ async function getOrganizations(req, res) {
     try {
         const query =
             `SELECT o.*,p.name,p.plant_id,p.location
-            FROM organizations o
-            LEFT JOIN plants p ON p.organization_id = o.organization_id
+            FROM swp.organizations o
+            LEFT JOIN swp.plants p ON p.organization_id = o.organization_id
             WHERE o.organization_id=$1`;
 
 
@@ -206,7 +206,7 @@ async function insertCategories(req, res) {
     const { name, subtitle, icon, form_type, department_name } = req.body;
 
     const fetchDepartmentId = async (departmentName) => {
-        const query = `SELECT department_id FROM public.departments WHERE name = $1`;
+        const query = `SELECT department_id FROM swp.departments WHERE name = $1`;
         return new Promise((resolve, reject) => {
             db.query(query, [departmentName], (error, result) => {
                 if (error) {
@@ -224,7 +224,7 @@ async function insertCategories(req, res) {
     try {
         const department_id = await fetchDepartmentId(department_name);
 
-        const query = `INSERT INTO public.categories (name, subtitle, icon, form_type, department_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+        const query = `INSERT INTO swp.categories (name, subtitle, icon, form_type, department_id) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
 
         db.query(query, [name, subtitle, icon, form_type, department_id], (error, result) => {
             if (error) {
@@ -244,7 +244,7 @@ async function createForms(req, res) {
     const { category_id, plant_id, form_name, form_description, created_by } = req.body;
 
     const checkIfExists = async (tableName, columnName, id) => {
-        const query = `SELECT 1 FROM public.${tableName} WHERE ${columnName} = $1`;
+        const query = `SELECT 1 FROM swp.${tableName} WHERE ${columnName} = $1`;
         return new Promise((resolve, reject) => {
             db.query(query, [id], (error, result) => {
                 if (error) {
@@ -273,7 +273,7 @@ async function createForms(req, res) {
             return res.status(400).json({ message: "Invalid created_by" });
         }
 
-        const query = `INSERT INTO public.forms (category_id, plant_id, form_name, form_description, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
+        const query = `INSERT INTO swp.forms (category_id, plant_id, form_name, form_description, created_by) VALUES ($1, $2, $3, $4, $5) RETURNING *`;
 
         db.query(query, [category_id, plant_id, form_name, form_description, created_by], (error, result) => {
             if (error) {
@@ -293,7 +293,7 @@ async function createQuestions(req, res) {
     const questions = req.body.questions;
 
     const checkIfExists = async (tableName, columnName, id) => {
-        const query = `SELECT 1 FROM public.${tableName} WHERE ${columnName} = $1`;
+        const query = `SELECT 1 FROM swp.${tableName} WHERE ${columnName} = $1`;
         return new Promise((resolve, reject) => {
             db.query(query, [id], (error, result) => {
                 if (error) {
@@ -321,7 +321,7 @@ async function createQuestions(req, res) {
         const insertedQuestions = [];
         for (const question of questions) {
             const { form_id, question_text, question_type, options } = question;
-            const query = `INSERT INTO public.questions (form_id, question_text, question_type) VALUES ($1, $2, $3) RETURNING question_id`;
+            const query = `INSERT INTO swp.questions (form_id, question_text, question_type) VALUES ($1, $2, $3) RETURNING question_id`;
             const values = [form_id, question_text, question_type];
 
             const result = await new Promise((resolve, reject) => {
@@ -343,7 +343,7 @@ async function createQuestions(req, res) {
         for (const { question_id, options } of insertedQuestions) {
             if (options && options.length > 0) {
                 const optionQueries = options.map(option => {
-                    const query = `INSERT INTO public.options (question_id, option_text) VALUES ($1, $2)`;
+                    const query = `INSERT INTO swp.options (question_id, option_text) VALUES ($1, $2)`;
                     const values = [question_id, option];
                     return new Promise((resolve, reject) => {
                         db.query(query, values, (error, result) => {
@@ -377,7 +377,7 @@ async function getAuthorizersByDepartment(req, res) {
 
     const getQuery = `
         SELECT first_name, last_name, user_id
-        FROM public.users
+        FROM swp.users
         WHERE department_id = $1 AND role_id = $2
     `;
 
@@ -403,27 +403,27 @@ async function insertSubmissionDetails(req, res) {
         const status = 'opened';
         const { formId, authorizer, requestedBy, startDate, startTime, endDate, endTime, location, remarks, workers, contractors, questions } = req.body;
         const submissionId = uuidv4();
-        const insertSubmissionQuery = `INSERT INTO public.submissions (submission_id, form_id, authorizer, requested_by, start_date, start_time, end_date, end_time, location, remark, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
+        const insertSubmissionQuery = `INSERT INTO swp.submissions (submission_id, form_id, authorizer, requested_by, start_date, start_time, end_date, end_time, location, remark, status) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`;
         await client.query(insertSubmissionQuery, [submissionId, formId, authorizer, requestedBy, startDate, startTime, endDate, endTime, location, remarks, status]);
 
         for (const worker of workers) {
             const workerId = worker.id || uuidv4();
-            const insertWorkerQuery = `INSERT INTO public.workers (worker_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (worker_id) DO NOTHING`;
+            const insertWorkerQuery = `INSERT INTO swp.workers (worker_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (worker_id) DO NOTHING`;
             await client.query(insertWorkerQuery, [workerId, worker.name, worker.mobileNumber]);
-            const insertSubmissionWorkerQuery = `INSERT INTO public.submission_workers (submission_id, worker_id) VALUES ($1, $2)`;
+            const insertSubmissionWorkerQuery = `INSERT INTO swp.submission_workers (submission_id, worker_id) VALUES ($1, $2)`;
             await client.query(insertSubmissionWorkerQuery, [submissionId, workerId]);
         }
 
         for (const contractor of contractors) {
             const contractorId = contractor.id || uuidv4();
-            const insertContractorQuery = `INSERT INTO public.contractors (contractor_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (contractor_id) DO NOTHING`;
+            const insertContractorQuery = `INSERT INTO swp.contractors (contractor_id, name, mobile_number) VALUES ($1, $2, $3) ON CONFLICT (contractor_id) DO NOTHING`;
             await client.query(insertContractorQuery, [contractorId, contractor.name, contractor.mobileNumber]);
-            const insertSubmissionContractorQuery = `INSERT INTO public.submission_contractors (submission_id, contractor_id) VALUES ($1, $2)`;
+            const insertSubmissionContractorQuery = `INSERT INTO swp.submission_contractors (submission_id, contractor_id) VALUES ($1, $2)`;
             await client.query(insertSubmissionContractorQuery, [submissionId, contractorId]);
         }
 
         for (const question of questions) {
-            const insertAnswerQuery = `INSERT INTO public.answers (submission_id, question_id, answer_text, remark) VALUES ($1, $2, $3, $4)`;
+            const insertAnswerQuery = `INSERT INTO swp.answers (submission_id, question_id, answer_text, remark) VALUES ($1, $2, $3, $4)`;
             await client.query(insertAnswerQuery, [submissionId, question.question_id, question.answer, question.remarks]);
 
             if (question.attachment && question.attachment.data) {
@@ -451,7 +451,7 @@ async function insertSubmissionDetails(req, res) {
                     }
 
                     // Insert a record into the attachments table with the relative path
-                    const insertAttachmentQuery = `INSERT INTO public.attachments (submission_id, question_id, file_name, file_path) VALUES ($1, $2, $3, $4)`;
+                    const insertAttachmentQuery = `INSERT INTO swp.attachments (submission_id, question_id, file_name, file_path) VALUES ($1, $2, $3, $4)`;
                     await client.query(insertAttachmentQuery, [submissionId, question.question_id, attachmentFileName, `uploads/${attachmentFileName}`]);
                 } catch (fileError) {
                     throw new Error(`File handling error: ${fileError.message}`);
@@ -523,7 +523,7 @@ async function getUserSubmissions(req, res) {
         }
 
         const userFormQuery = `
-            SELECT submission_id, remark, status, created_at, form_id, authorizer FROM submissions
+            SELECT submission_id, remark, status, created_at, form_id, authorizer FROM swp.submissions
             WHERE requested_by = $1 
             ${intervalCondition} ORDER BY created_at DESC`;
 
@@ -538,14 +538,14 @@ async function getUserSubmissions(req, res) {
         // Fetch form data and authorizer details for each submission
         for (let submission of result.rows) {
             const formDataQuery = `
-                SELECT form_name FROM forms
+                SELECT form_name FROM swp.forms
                 WHERE form_id = $1`;
 
             const formDataResult = await db.query(formDataQuery, [submission.form_id]);
             if (formDataResult.rows.length === 1) {
                 // Fetch authorizer details
                 const authorizerDataQuery = `
-                    SELECT first_name, last_name FROM users
+                    SELECT first_name, last_name FROM swp.users
                     WHERE user_id = $1`;
 
                 const authorizerDataResult = await db.query(authorizerDataQuery, [submission.authorizer]);
@@ -611,7 +611,7 @@ async function getUserSubmissionStatusCounts(req, res) {
         // Query to get status counts
         const statusCountQuery = `
             SELECT status, COUNT(*) as count
-            FROM submissions
+            FROM swp.submissions
             WHERE requested_by = $1 
             ${intervalCondition}
             GROUP BY status`;
@@ -619,7 +619,7 @@ async function getUserSubmissionStatusCounts(req, res) {
         // Query to get total count
         const totalCountQuery = `
             SELECT COUNT(*) as total_count
-            FROM submissions
+            FROM swp.submissions
             WHERE requested_by = $1 
             ${intervalCondition}`;
 
@@ -664,7 +664,7 @@ async function getSubmissionDetails(req, res) {
                 requested_by,
                 created_at
             FROM
-                public.submissions
+                swp.submissions
             WHERE
                 submission_id = $1
         `;
@@ -681,7 +681,7 @@ async function getSubmissionDetails(req, res) {
                 first_name,
                 last_name
             FROM
-                public.users
+                swp.users
             WHERE
                 user_id = $1
         `;
@@ -694,7 +694,7 @@ async function getSubmissionDetails(req, res) {
                 first_name,
                 last_name
             FROM
-                public.users
+                swp.users
             WHERE
                 user_id = $1
         `;
@@ -709,7 +709,7 @@ async function getSubmissionDetails(req, res) {
                 question_type,
                 created_at
             FROM
-                public.questions
+                swp.questions
             WHERE
                 form_id = $1
         `;
@@ -725,9 +725,9 @@ async function getSubmissionDetails(req, res) {
                 a.answer_text,
                 a.remark
             FROM
-                public.questions q
+                swp.questions q
             LEFT JOIN
-                public.answers a ON q.question_id = a.question_id
+                swp.answers a ON q.question_id = a.question_id
             WHERE
                 q.form_id = $1
                 AND a.submission_id = $2
@@ -740,9 +740,9 @@ async function getSubmissionDetails(req, res) {
                 w.name,
                 w.mobile_number
             FROM
-                public.submission_workers sw
+                swp.submission_workers sw
             JOIN
-                public.workers w ON sw.worker_id = w.worker_id
+                swp.workers w ON sw.worker_id = w.worker_id
             WHERE
                 sw.submission_id = $1
         `;
@@ -754,9 +754,9 @@ async function getSubmissionDetails(req, res) {
                 c.name,
                 c.mobile_number
             FROM
-                public.submission_contractors sc
+                swp.submission_contractors sc
             JOIN
-                public.contractors c ON sc.contractor_id = c.contractor_id
+                swp.contractors c ON sc.contractor_id = c.contractor_id
             WHERE
                 sc.submission_id = $1
         `;
@@ -768,7 +768,7 @@ async function getSubmissionDetails(req, res) {
                 form_name,
                 category_id
             FROM
-                public.forms
+                swp.forms
             WHERE
                 form_id = $1
         `;
@@ -781,7 +781,7 @@ async function getSubmissionDetails(req, res) {
                 subtitle,
                 icon
             FROM
-                public.categories
+                swp.categories
             WHERE
                 category_id = $1
         `;
@@ -822,7 +822,7 @@ async function getSubmissionDetails(req, res) {
                     file_name,
                     file_path
                 FROM
-                    public.attachments
+                    swp.attachments
                 WHERE
                     submission_id = $1
                     AND question_id = $2
@@ -880,9 +880,9 @@ async function getSubmissionCount(req, res) {
         // Query to fetch submission counts grouped by status for a user and form type
         const query = `
             SELECT s.status, COUNT(*) AS count
-            FROM submissions s
-            JOIN forms f ON s.form_id = f.form_id
-            JOIN categories c ON f.category_id = c.category_id
+            FROM swp.submissions s
+            JOIN swp.forms f ON s.form_id = f.form_id
+            JOIN swp.categories c ON f.category_id = c.category_id
             WHERE c.form_type = $1 AND s.requested_by = $2
             GROUP BY s.status;
         `;
@@ -912,11 +912,11 @@ async function getSubmissionCount(req, res) {
 
 async function fetchFormAndAuthorizer(client, formId, authorizerId) {
     // Fetch form details from the database
-    const formDetailsQuery = 'SELECT form_name, form_description FROM public.forms WHERE form_id = $1';
+    const formDetailsQuery = 'SELECT form_name, form_description FROM swp.forms WHERE form_id = $1';
     const formDetailsResult = await client.query(formDetailsQuery, [formId]);
 
     // Fetch authorizer details from the database
-    const authorizerDetailsQuery = 'SELECT personal_email, first_name, last_name FROM public.users WHERE user_id = $1';
+    const authorizerDetailsQuery = 'SELECT personal_email, first_name, last_name FROM swp.users WHERE user_id = $1';
     const authorizerDetailsResult = await client.query(authorizerDetailsQuery, [authorizerId]);
 
     if (formDetailsResult.rows.length === 0 || authorizerDetailsResult.rows.length === 0) {
