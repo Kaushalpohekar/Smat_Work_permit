@@ -44,7 +44,6 @@ async function getCategories(req, res) {
 
 async function getForms(req, res) {
     const { category_id } = req.params;
-    console.log(category_id);
 
     if (!category_id) {
         return res.status(400).json({ error: 'Category ID is required' });
@@ -372,8 +371,7 @@ async function getAuthorizersByDepartment(req, res) {
     const department_id = req.params.department_id;
     const authorizerRoleId = 'b3d036de-e44e-43d2-8bd4-dd6a0e040bc5'; // UUID for the Authorizer role
 
-    console.log('Department ID:', department_id);
-    console.log('Authorizer Role ID:', authorizerRoleId);
+
 
     const getQuery = `
         SELECT first_name, last_name, user_id
@@ -383,7 +381,6 @@ async function getAuthorizersByDepartment(req, res) {
 
     try {
         const result = await db.query(getQuery, [department_id, authorizerRoleId]);
-        console.log('Query Result:', result.rows);
 
         if (result.rows.length > 0) {
             res.status(200).json(result.rows);
@@ -427,7 +424,6 @@ async function insertSubmissionDetails(req, res) {
             await client.query(insertAnswerQuery, [submissionId, question.question_id, question.answer, question.remarks]);
 
             if (question.attachment && question.attachment.data) {
-                console.log(question.attachment.data);
                 const originalFileName = question.attachment.file_name;
                 const attachmentFileName = `${submissionId}_${originalFileName}`;
                 const attachmentDir = path.join(__dirname, '../uploads');
@@ -700,6 +696,31 @@ async function getSubmissionDetails(req, res) {
         `;
         const authorizerResult = await db.query(authorizerQuery, [submission.authorizer]);
         const authorizerUser = authorizerResult.rows[0];
+        const signatureQuery = `
+            SELECT
+                sign_name,
+                sign_path
+            FROM
+                swp.usersignaturephotos
+            WHERE
+                user_id = $1
+            LIMIT 1
+        `;
+        const signatureResult = await db.query(signatureQuery, [submission.authorizer]);
+        const signature = signatureResult.rows[0];
+
+        let authorizerSignature = null;
+        if (signature && signature.sign_path) {
+            try {
+                const fileBuffer = fs.readFileSync(signature.sign_path);
+                const base64File = fileBuffer.toString('base64');
+                const mimeType = mime.lookup(signature.sign_name);
+                authorizerSignature = `data:${mimeType || 'application/octet-stream'};base64,${base64File}`;
+            } catch (error) {
+                console.error('Error reading signature file:', error);
+            }
+        }
+
 
         // Fetch questions for the form
         const questionsQuery = `
@@ -800,7 +821,8 @@ async function getSubmissionDetails(req, res) {
                 },
                 authorizer: {
                     first_name: authorizerUser.first_name,
-                    last_name: authorizerUser.last_name
+                    last_name: authorizerUser.last_name,
+                    signature: authorizerSignature
                 },
             },
             workers: workers,
@@ -955,7 +977,6 @@ async function sendSubmissionEmail(formDetails, authorizerDetails) {
         };
 
         const info = await transporter.sendMail(mailOptions);
-        console.log('Email sent:', info.response);
     } catch (error) {
         console.error('Error sending email:', error);
     }

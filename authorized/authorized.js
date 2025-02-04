@@ -46,7 +46,7 @@ async function getUserSubmissions(req, res) {
             SELECT s.submission_id, s.remark, s.start_date, s.start_time, s.end_date, s.end_time, s.status, s.created_at, 
                    s.form_id, s.requested_by, f.form_name, u.first_name, u.last_name, u.organization_id, 
                    o.name, 
-                   (SELECT COUNT(*) FROM submission_workers sw WHERE sw.submission_id = s.submission_id) as worker_count
+                   (SELECT COUNT(*) FROM swp.submission_workers sw WHERE sw.submission_id = s.submission_id) as worker_count
             FROM swp.submissions s
             JOIN swp.forms f ON s.form_id = f.form_id
             JOIN swp.users u ON s.requested_by = u.user_id

@@ -53,7 +53,6 @@ async function insertData(req, res) {
 async function insertDataBct(req, res) {
     try {
         const { user_id, data } = req.body;
-        console.log('Request Body:', req.body); // Log the entire request body
 
         const submission_id = uuidv4();
         const status = {
@@ -765,7 +764,6 @@ function sendMailForApprovalRequest(emails, data) {
             if (error) {
                 console.error('Error sending email:', error);
             } else {
-                console.log('Email sent:', info.response);
             }
         });
     });
