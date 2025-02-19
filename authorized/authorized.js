@@ -46,11 +46,11 @@ async function getUserSubmissions(req, res) {
             SELECT s.submission_id, s.remark, s.start_date, s.start_time, s.end_date, s.end_time, s.status, s.created_at, 
                    s.form_id, s.requested_by, f.form_name, u.first_name, u.last_name, u.organization_id, 
                    o.name, 
-                   (SELECT COUNT(*) FROM submission_workers sw WHERE sw.submission_id = s.submission_id) as worker_count
-            FROM submissions s
-            JOIN forms f ON s.form_id = f.form_id
-            JOIN users u ON s.requested_by = u.user_id
-            JOIN organizations o ON u.organization_id = o.organization_id
+                   (SELECT COUNT(*) FROM swp.submission_workers sw WHERE sw.submission_id = s.submission_id) as worker_count
+            FROM swp.submissions s
+            JOIN swp.forms f ON s.form_id = f.form_id
+            JOIN swp.users u ON s.requested_by = u.user_id
+            JOIN swp.organizations o ON u.organization_id = o.organization_id
             WHERE s.authorizer = $1
             AND f.category_id = $2
             ${intervalCondition}
@@ -74,11 +74,11 @@ async function approveSubmission(req, res) {
     const { approved_by, password, submission_id } = req.body;
     const queryUser = `
         SELECT u.*, s.sign_id 
-        FROM public.users u
-        LEFT JOIN UserSignaturePhotos s ON u.user_id = s.user_id
+        FROM swp.users u
+        LEFT JOIN swp.UserSignaturePhotos s ON u.user_id = s.user_id
         WHERE u.user_id = $1`;
     const querySubmission = `
-        UPDATE submissions 
+        UPDATE swp.submissions 
         SET status = 'approved', approved_by = $1, approved_at = NOW() 
         WHERE submission_id = $2 
         RETURNING *`;
@@ -122,9 +122,9 @@ async function approveSubmission(req, res) {
 
 async function rejectSubmission(req, res) {
     const { rejected_by, password, submission_id } = req.body;
-    const queryUser = `SELECT * FROM public.users WHERE user_id = $1`;
+    const queryUser = `SELECT * FROM swp.users WHERE user_id = $1`;
     const querySubmission = `
-        UPDATE submissions 
+        UPDATE swp.submissions 
         SET status = 'rejected', rejected_by = $1, rejected_at = NOW() 
         WHERE submission_id = $2 
         RETURNING *`;
@@ -178,12 +178,12 @@ async function getUserDetails(req, res) {
                 up.photo_path, up.photo_name as profile_name,
                 us.sign_path, us.sign_name as sign_name
             FROM 
-                users u
-                LEFT JOIN departments d ON u.department_id = d.department_id
-                LEFT JOIN organizations o ON u.organization_id = o.organization_id
-                LEFT JOIN plants p ON d.plant_id = p.plant_id
-                LEFT JOIN userprofilepictures up ON u.user_id = up.user_id
-                LEFT JOIN usersignaturephotos us ON u.user_id = us.user_id
+                swp.users u
+                LEFT JOIN swp.departments d ON u.department_id = d.department_id
+                LEFT JOIN swp.organizations o ON u.organization_id = o.organization_id
+                LEFT JOIN swp.plants p ON d.plant_id = p.plant_id
+                LEFT JOIN swp.userprofilepictures up ON u.user_id = up.user_id
+                LEFT JOIN swp.usersignaturephotos us ON u.user_id = us.user_id
             WHERE 
                 u.user_id = $1;
         `;
@@ -268,9 +268,9 @@ async function getSubmissionCount(req, res) {
         // Query to fetch submission counts grouped by status for a user and form type
         const query = `
             SELECT s.status, COUNT(*) AS count
-            FROM submissions s
-            JOIN forms f ON s.form_id = f.form_id
-            JOIN categories c ON f.category_id = c.category_id
+            FROM swp.submissions s
+            JOIN swp.forms f ON s.form_id = f.form_id
+            JOIN swp.categories c ON f.category_id = c.category_id
             WHERE c.form_type = $1 AND s.authorizer = $2
             GROUP BY s.status;
         `;
@@ -329,9 +329,9 @@ async function getFormTypeBar(req, res) {
     try {
         const query = `
             SELECT c.form_type, COUNT(*) AS count
-            FROM submissions s
-            JOIN forms f ON s.form_id = f.form_id
-            JOIN categories c ON f.category_id = c.category_id
+            FROM swp.submissions s
+            JOIN swp.forms f ON s.form_id = f.form_id
+            JOIN swp.categories c ON f.category_id = c.category_id
             WHERE s.authorizer = $1
             ${intervalCondition}
             AND s.status = 'opened'
@@ -388,9 +388,9 @@ async function getFormTypePercentages(req, res) {
             SELECT c.form_type, 
                    COUNT(*) AS count,
                    ROUND((COUNT(*) * 100.0) / SUM(COUNT(*)) OVER (), 2) AS percentage
-            FROM submissions s
-            JOIN forms f ON s.form_id = f.form_id
-            JOIN categories c ON f.category_id = c.category_id
+            FROM swp.submissions s
+            JOIN swp.forms f ON s.form_id = f.form_id
+            JOIN swp.categories c ON f.category_id = c.category_id
             WHERE s.authorizer = $1
             ${intervalCondition}
             GROUP BY c.form_type;
@@ -448,7 +448,7 @@ async function getStatusCounts(req, res) {
         const query = `
             SELECT status, 
                    COUNT(*) AS count
-            FROM submissions
+            FROM swp.submissions
             WHERE authorizer = $1
             ${intervalCondition}
             GROUP BY status;
@@ -512,7 +512,7 @@ async function getApprovedCounts(req, res) {
                 ${timeGrouping} AS time_interval,
                 status,
                 COUNT(*) AS count
-            FROM submissions
+            FROM swp.submissions
             WHERE authorizer = $1
               AND status IN ('approved', 'rejected')
               ${intervalCondition}
@@ -603,14 +603,14 @@ async function insertOrUpdateSignature(req, res) {
         // Insert or update the record in the userSignaturePhotos table
         if (signatureResult.rowCount > 0) {
             const updateSignatureQuery = `
-                UPDATE public.userSignaturePhotos
+                UPDATE swp.userSignaturePhotos
                 SET sign_name = $1, sign_path = $2
                 WHERE user_id = $3
             `;
             await client.query(updateSignatureQuery, [file_name, signPath, user_id]);
         } else {
             const insertSignatureQuery = `
-                INSERT INTO public.userSignaturePhotos (user_id, sign_name, sign_path)
+                INSERT INTO swp.userSignaturePhotos (user_id, sign_name, sign_path)
                 VALUES ($1, $2, $3)
             `;
             await client.query(insertSignatureQuery, [user_id, file_name, signPath]);

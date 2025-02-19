@@ -7,7 +7,7 @@ const { v4: uuidv4 } = require('uuid');
 // const {title,subtitle,icon}=req.body;
 // const category_id = uuidv4();
 
-// const CreateCategoryQuery = `INSERT INTO public.category (title,subtitle,icon,category_id) VALUES ($1,$2,$3,$4) RETURNING category_id`
+// const CreateCategoryQuery = `INSERT INTO swp.category (title,subtitle,icon,category_id) VALUES ($1,$2,$3,$4) RETURNING category_id`
 
 // db.query(CreateCategoryQuery,[title,subtitle,icon,category_id],(error,result)=>{
 //     if(error){
@@ -33,12 +33,12 @@ async function createCategory(req, res) {
 
     const checkCategoryQuery = `
       SELECT category_id 
-      FROM public.categories 
+      FROM swp.categories 
       WHERE category_id = $1
     `;
 
     const insertCategoryQuery = `
-      INSERT INTO public.categories (category_id, name, subtitle, icon, form_type, department_id)
+      INSERT INTO swp.categories (category_id, name, subtitle, icon, form_type, department_id)
       VALUES ($1, $2, $3, $4, $5, $6)
       RETURNING *
     `;
@@ -69,7 +69,7 @@ async function updateCategory(req, res) {
     const category_id = req.params.category_id;
     const { name, subtitle, icon, form_type } = req.body;
     const updateCategoryQuery = `
-        UPDATE public.categories 
+        UPDATE swp.categories 
         SET name = $1, subtitle = $2, icon = $3, form_type = $4
         WHERE category_id = $5
         RETURNING *
@@ -92,7 +92,7 @@ async function updateCategory(req, res) {
 
 async function deleteCategory(req, res) {
     const category_id = req.params.category_id;
-    const deleteCategoryQuery = `DELETE FROM public.categories WHERE category_id = $1`;
+    const deleteCategoryQuery = `DELETE FROM swp.categories WHERE category_id = $1`;
 
     try {
         const result = await db.query(deleteCategoryQuery, [category_id]);
@@ -111,7 +111,7 @@ async function deleteCategory(req, res) {
 async function getCategoryById(req, res) {
     const category_id = req.params.category_id;
 
-    const getCategoryQuery = `SELECT * FROM public.categories WHERE category_id = $1`;
+    const getCategoryQuery = `SELECT * FROM swp.categories WHERE category_id = $1`;
 
     try {
         const result = await db.query(getCategoryQuery, [category_id]);
@@ -128,7 +128,7 @@ async function getCategoryById(req, res) {
 
 
 async function getAllCategories(req, res) {
-    const getAllCategoriesQuery = `SELECT * FROM public.categories`;
+    const getAllCategoriesQuery = `SELECT * FROM swp.categories`;
 
     try {
         const result = await db.query(getAllCategoriesQuery, []);
@@ -148,7 +148,7 @@ async function createForm(req, res) {
     try {
         const categoryQuery = `
             SELECT "name", subtitle, icon 
-            FROM public.categories 
+            FROM swp.categories 
             WHERE category_id = $1
         `;
         const categoryResult = await db.query(categoryQuery, [category_id]);
@@ -161,7 +161,7 @@ async function createForm(req, res) {
 
         const formUIDQuery = `
             SELECT COUNT(*) 
-            FROM public.forms 
+            FROM swp.forms 
             WHERE category_id = $1
         `;
         const formCountResult = await db.query(formUIDQuery, [category_id]);
@@ -171,7 +171,7 @@ async function createForm(req, res) {
         const form_id = uuidv4();
 
         const insertFormQuery = `
-            INSERT INTO public.forms (
+            INSERT INTO swp.forms (
                 form_id, form_name, form_description, organization, created_by, form_type, 
                 form_uid, title, subtitle, icon, start_date, start_time, 
                 end_date, end_time, name, worker, category_id, plant_id
@@ -195,7 +195,7 @@ async function createForm(req, res) {
 
 async function getFormById(req, res) {
     const { form_id } = req.params;
-    const getFormQuery = `SELECT * FROM public.forms WHERE form_id =$1`;
+    const getFormQuery = `SELECT * FROM swp.forms WHERE form_id =$1`;
     db.query(getFormQuery, [form_id], (error, result) => {
         if (error) {
             console.error('Error fetching form: ', error);
@@ -212,7 +212,7 @@ async function getFormById(req, res) {
 
 
 async function getAllForms(req, res) {
-    const getAllformsQuery = `SELECT * FROM public.forms`;
+    const getAllformsQuery = `SELECT * FROM swp.forms`;
     db.query(getAllformsQuery, [], (error, result) => {
         if (error) {
             console.error('Error fetching forms:', error);
@@ -229,7 +229,7 @@ async function updateForm(req, res) {
     const { form_name, organization, created_by, form_type, start_date, start_time, end_date, end_time, name, worker } = req.body;
 
     const updateQuery = `
-        UPDATE public.forms 
+        UPDATE swp.forms 
         SET form_name = $1, organization = $2, created_by = $3, form_type = $4, 
         start_date = $5, start_time = $6, end_date = $7, end_time = $8, name = $9, worker = $10
         WHERE form_id = $11
@@ -253,7 +253,7 @@ async function updateForm(req, res) {
 
 async function deleteForm(req, res) {
     const { form_id } = req.params;
-    const deleteFormQuery = `DELETE FROM public.forms WHERE form_id = $1 RETURNING *`;
+    const deleteFormQuery = `DELETE FROM swp.forms WHERE form_id = $1 RETURNING *`;
     db.query(deleteFormQuery, [form_id], (error, result) => {
         if (error) {
             console.error('Error deleting forms:', error);
@@ -278,7 +278,7 @@ async function createQuestion(req, res) {
 
     try {
         const insertQuestionQuery = `
-            INSERT INTO public.questions (question_id, form_id, question_text, question_type) 
+            INSERT INTO swp.questions (question_id, form_id, question_text, question_type) 
             VALUES ($1, $2, $3, $4)
             RETURNING question_id
         `;
@@ -288,7 +288,7 @@ async function createQuestion(req, res) {
 
         if ((question_type === 'multiple_choice' || question_type === 'radio_button') && Array.isArray(options)) {
             const insertOptionsQuery = `
-                INSERT INTO public.options (option_id, question_id, option_text) 
+                INSERT INTO swp.options (option_id, question_id, option_text) 
                 VALUES ($1, $2, $3)
             `;
 
@@ -300,11 +300,11 @@ async function createQuestion(req, res) {
             await Promise.all(optionsPromises);
         } else if (question_type === 'yes_no') {
             const insertYesOptionQuery = `
-                INSERT INTO public.options (option_id, question_id, option_text) 
+                INSERT INTO swp.options (option_id, question_id, option_text) 
                 VALUES ($1, $2, $3)
             `;
             const insertNoOptionQuery = `
-                INSERT INTO public.options (option_id, question_id, option_text) 
+                INSERT INTO swp.options (option_id, question_id, option_text) 
                 VALUES ($1, $2, $3)
             `;
 
@@ -329,7 +329,7 @@ async function updateQuestion(req, res) {
     const { question_text, question_type, options } = req.body;
 
     const updateQuery = `
-        UPDATE public.questions 
+        UPDATE swp.questions 
         SET question_text = $1, question_type = $2 
         WHERE question_id = $3
     `;
@@ -340,11 +340,11 @@ async function updateQuestion(req, res) {
 
         if (question_type === 'multiple_choice' && Array.isArray(options)) {
             // Delete existing options
-            await db.query(`DELETE FROM public.options WHERE question_id = $1`, [questionId]);
+            await db.query(`DELETE FROM swp.options WHERE question_id = $1`, [questionId]);
 
             // Insert new options
             const insertOptionsQuery = `
-                INSERT INTO public.options (option_id, question_id, option_text) 
+                INSERT INTO swp.options (option_id, question_id, option_text) 
                 VALUES ($1, $2, $3)
             `;
             const promises = options.map(optionText => {
@@ -365,7 +365,7 @@ async function updateQuestion(req, res) {
 
 async function deleteQuestion(req, res) {
     const questionId = req.params.question_id;
-    const deleteQuestionQuery = `DELETE FROM questions WHERE question_id = $1`;
+    const deleteQuestionQuery = `DELETE FROM swp.questions WHERE question_id = $1`;
     db.query(deleteQuestionQuery, [questionId], (error) => {
         if (error) {
             console.error('Error deleting question:', error);
@@ -380,7 +380,7 @@ async function deleteQuestion(req, res) {
 
 async function getQuestionByFormId(req, res) {
     const { form_id } = req.params;
-    const getQuestionQuery = `SELECT * FROM public.questions WHERE form_id = $1`;
+    const getQuestionQuery = `SELECT * FROM swp.questions WHERE form_id = $1`;
 
     try {
         const result = await db.query(getQuestionQuery, [form_id]);

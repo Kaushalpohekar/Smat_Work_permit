@@ -2,13 +2,10 @@ const db = require('../db');
 const { v4: uuidv4 } = require('uuid');
 const bcrypt = require('bcrypt');
 
-function sanitizeInput(input) {
-    return input.replace(/[^\w\s.-]/gi, '');
-}
 
 async function organizationByOrganizationId(req, res) {
     const { organization_id } = req.params;
-    const query = `SELECT * FROM organizations WHERE organization_id = $1`;
+    const query = `SELECT * FROM swp.organizations WHERE organization_id = $1`;
     try {
         const result = await db.query(query, [organization_id]);
         if (result.rows.length === 0) {
@@ -29,7 +26,7 @@ async function FormByFormId(req, res) {
     try {
         const queryForm = `
         SELECT *
-        FROM forms WHERE form_id = $1`;
+        FROM swp.forms WHERE form_id = $1`;
         const valuesForm = [form_id];
         const resultForm = await client.query(queryForm, valuesForm);
 
@@ -41,7 +38,7 @@ async function FormByFormId(req, res) {
 
         const queryQuestions = `
         SELECT *
-        FROM questions WHERE form_id = $1`;
+        FROM swp.questions WHERE form_id = $1`;
         const valuesQuestions = [form_id];
         const resultQuestions = await client.query(queryQuestions, valuesQuestions);
 
@@ -50,7 +47,7 @@ async function FormByFormId(req, res) {
         for (const question of questions) {
         const queryOptions = `
             SELECT *
-            FROM options WHERE question_id = $1`;
+            FROM swp.options WHERE question_id = $1`;
         const valuesOptions = [question.question_id];
         const resultOptions = await client.query(queryOptions, valuesOptions);
 
@@ -70,7 +67,7 @@ async function FormByFormId(req, res) {
 
 async function plantsByOrganizationId(req, res) {
     const { organization_id } = req.params;
-    const query = `SELECT * FROM plants WHERE organization_id = $1`;
+    const query = `SELECT * FROM swp.plants WHERE organization_id = $1`;
     try {
         const result = await db.query(query, [organization_id]);
         if (result.rows.length === 0) {
@@ -87,8 +84,8 @@ async function departmentsByPlantId(req, res) {
     const { plant_id } = req.params;
     const query = `
         SELECT d.department_id, d.name, d.plant_id, COUNT(u.user_id) AS total_users
-        FROM departments d
-        LEFT JOIN users u ON d.department_id = u.department_id
+        FROM swp.departments d
+        LEFT JOIN swp.users u ON d.department_id = u.department_id
         WHERE d.plant_id = $1
         GROUP BY d.department_id, d.name, d.plant_id;
     `;
@@ -109,8 +106,8 @@ async function userByDepartmentId(req, res) {
     const { department_id } = req.params;
     const query = `
         SELECT u.*, r.name as role_name
-        FROM users u
-        JOIN roles r ON u.role_id = r.role_id
+        FROM swp.users u
+        JOIN swp.roles r ON u.role_id = r.role_id
         WHERE u.department_id = $1`;
     try {
         const result = await db.query(query, [department_id]);
@@ -126,7 +123,7 @@ async function userByDepartmentId(req, res) {
 
 async function usersByOrganizationId(req, res) {
     const { organization_id } = req.params;
-    const query = `SELECT * FROM users WHERE organization_id = $1`;
+    const query = `SELECT * FROM swp.users WHERE organization_id = $1`;
     try {
         const result = await db.query(query, [organization_id]);
         if (result.rows.length === 0) {
@@ -141,7 +138,7 @@ async function usersByOrganizationId(req, res) {
 
 async function CategoriesByDepartmentId(req, res) {
     const { department_id } = req.params;
-    const query = `SELECT * FROM categories WHERE department_id = $1`;
+    const query = `SELECT * FROM swp.categories WHERE department_id = $1`;
     try {
         const result = await db.query(query, [department_id]);
         if (result.rows.length === 0) {
@@ -156,7 +153,7 @@ async function CategoriesByDepartmentId(req, res) {
 
 async function previousFormsByCategories(req, res) {
     const { category_id } = req.params;
-    const query = `SELECT * FROM forms WHERE category_id = $1`;
+    const query = `SELECT * FROM swp.forms WHERE category_id = $1`;
     try {
         const result = await db.query(query, [category_id]);
         if (result.rows.length === 0) {
@@ -175,9 +172,9 @@ async function addPlantsInOrganization(req, res) {
     const plant_id = uuidv4();
     const created_at = new Date().toISOString();  // Current date and time in ISO 8601 format
     
-    const queryOne = `SELECT 1 FROM organizations WHERE organization_id = $1`;
+    const queryOne = `SELECT 1 FROM swp.organizations WHERE organization_id = $1`;
     const queryTwo = `
-        INSERT INTO plants (plant_id, organization_id, name, location, created_at) 
+        INSERT INTO swp.plants (plant_id, organization_id, name, location, created_at) 
         VALUES ($1, $2, $3, $4, $5)
         RETURNING plant_id`;
 
@@ -203,7 +200,7 @@ async function addDepartmentInPlants(req, res) {
     const department_id = uuidv4();
     const created_at = new Date().toISOString();  // Current date and time in ISO 8601 format
     
-    const queryOne = `SELECT 1 FROM plants WHERE plant_id = $1`;
+    const queryOne = `SELECT 1 FROM swp.plants WHERE plant_id = $1`;
     const queryTwo = `
         INSERT INTO departments (department_id ,plant_id, name, created_at) 
         VALUES ($1, $2, $3, $4)
@@ -232,7 +229,7 @@ async function addCategory(req, res) {
     const created_at = new Date().toISOString();  // Current date and time in ISO 8601 format
     
     const query = `
-        INSERT INTO categories (category_id, created_at, department_id, name, icon, form_type, subtitle) 
+        INSERT INTO swp.categories (category_id, created_at, department_id, name, icon, form_type, subtitle) 
         VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING category_id`;
 
@@ -252,7 +249,7 @@ async function updatePlantByPlantId(req, res) {
     const { name, location } = req.body;
 
     const queryUpdate = `
-        UPDATE plants 
+        UPDATE swp.plants 
         SET name = $2, location = $3 
         WHERE plant_id = $1 
         RETURNING plant_id, name, location, organization_id, created_at`;
@@ -285,7 +282,7 @@ async function addFormData(req, res) {
 
     // Insert into forms table
     const queryForm = `
-      INSERT INTO forms (form_id, form_name, form_description, created_by, category_id, plant_id, created_at)
+      INSERT INTO swp.forms (form_id, form_name, form_description, created_by, category_id, plant_id, created_at)
       VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING form_id`;
     const valuesForm = [form_id, form_name, form_description, created_by, category_id, plant_id, created_at];
@@ -300,7 +297,7 @@ async function addFormData(req, res) {
       const created_at_question = new Date().toISOString();
 
       const queryQuestion = `
-        INSERT INTO questions (question_id, question_text, question_type, form_id, created_at)
+        INSERT INTO swp.questions (question_id, question_text, question_type, form_id, created_at)
         VALUES ($1, $2, $3, $4, $5)`;
       const valuesQuestion = [question_id, Question, QuestionType, newFormId, created_at_question];
 
@@ -314,7 +311,7 @@ async function addFormData(req, res) {
           const created_at_option = new Date().toISOString();
 
           const queryOption = `
-            INSERT INTO options (option_id, option_text, question_id, created_at)
+            INSERT INTO swp.options (option_id, option_text, question_id, created_at)
             VALUES ($1, $2, $3, $4)`;
           const valuesOption = [option_id, option, question_id, created_at_option];
 
@@ -335,7 +332,7 @@ async function addFormData(req, res) {
 }
 
 async function userRoles(req, res) {
-    const query = `SELECT * FROM roles WHERE name != 'SuperAdmin';`;
+    const query = `SELECT * FROM swp.roles WHERE name != 'SuperAdmin';`;
     try {
         const data = await db.query(query);
         const newdata = data.rows;
@@ -356,7 +353,7 @@ async function updateDepartmentByDepartmentId(req, res) {
     const { name } = req.body;
 
     const queryUpdate = `
-        UPDATE departments 
+        UPDATE swp.departments 
         SET name = $2
         WHERE department_id = $1 
         RETURNING department_id ,plant_id, name, created_at`;
@@ -380,7 +377,7 @@ async function deletePlantByPlantId(req, res) {
     const { plant_id } = req.params;
 
     const queryDelete = `
-        DELETE FROM plants 
+        DELETE FROM swp.plants 
         WHERE plant_id = $1 
         RETURNING plant_id`;
 
@@ -408,21 +405,21 @@ async function deleteFormByFormId(req, res) {
     await client.query('BEGIN');
 
     const deleteOptionsQuery = `
-      DELETE FROM options
+      DELETE FROM swp.options
       WHERE question_id IN (
         SELECT question_id
-        FROM questions
+        FROM swp.questions
         WHERE form_id = $1
       )`;
     await client.query(deleteOptionsQuery, [form_id]);
 
     const deleteQuestionsQuery = `
-      DELETE FROM questions
+      DELETE FROM swp.questions
       WHERE form_id = $1`;
     await client.query(deleteQuestionsQuery, [form_id]);
 
     const deleteFormQuery = `
-      DELETE FROM forms
+      DELETE FROM swp.forms
       WHERE form_id = $1`;
     await client.query(deleteFormQuery, [form_id]);
 
@@ -441,7 +438,7 @@ async function deleteUser(req, res) {
     const { user_id } = req.params;
 
     const queryDelete = `
-        DELETE FROM users 
+        DELETE FROM swp.users 
         WHERE user_id = $1 
         RETURNING user_id`;
 
@@ -464,7 +461,7 @@ async function deleteDepartmentByDepartmentId(req, res) {
     const { department_id } = req.params;
 
     const queryDelete = `
-        DELETE FROM departments 
+        DELETE FROM swp.departments 
         WHERE department_id = $1 
         RETURNING department_id`;
 
@@ -501,7 +498,7 @@ async function addUser(req, res) {
 
         // Query to find plant_id using department_id
         const queryDepartment = `
-            SELECT plant_id FROM departments WHERE department_id = $1`;
+            SELECT plant_id FROM swp.departments WHERE department_id = $1`;
         const resultDepartment = await db.query(queryDepartment, [department_id]);
 
         if (resultDepartment.rows.length === 0) {
@@ -512,7 +509,7 @@ async function addUser(req, res) {
 
         // Query to find organization_id using plant_id
         const queryPlant = `
-            SELECT organization_id FROM plants WHERE plant_id = $1`;
+            SELECT organization_id FROM swp.plants WHERE plant_id = $1`;
         const resultPlant = await db.query(queryPlant, [plant_id]);
 
         if (resultPlant.rows.length === 0) {
@@ -524,7 +521,7 @@ async function addUser(req, res) {
 
         // Insertion query for users table
         const queryInsert = `
-            INSERT INTO users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no) 
+            INSERT INTO swp.users (user_id, username, personal_email, password_hash, first_name, last_name, role_id, organization_id, department_id, created_at, company_email, verified, block, contact_no) 
             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
             RETURNING user_id`;
 
@@ -557,7 +554,7 @@ async function updateUser(req, res) {
     try {
         // Update query for users table
         const queryUpdate = `
-            UPDATE users
+            UPDATE swp.users
             SET username = $2,
                 personal_email = $3,
                 first_name = $4,
